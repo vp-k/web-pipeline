@@ -13,7 +13,7 @@ the protected changes below. Path rules promote `*migration*` and `*.sql` to
 | `none` | T0 | – | Data access only; no DDL |
 | `reversible` | T2 (T3 via `database_schema`) | `database_schema` | Additive or fully undoable DDL; rollback validated |
 | `backward_compatible` | T3 | `database_schema` | Old and new code run against the schema during deploy; expand/contract order documented |
-| `destructive` | T4 | `database_schema`, `destructive_migration` | Data or structure is lost; restore validated, RELEASE record and release receipt required |
+| `destructive` | T4 | `database_schema`, `destructive_migration` | Data or structure is lost; restore validated and RELEASE record required; release receipt before Release readiness, separate explicit authority before production execution |
 | `irreversible` | T4 | `database_schema`, `destructive_migration` | Cannot be undone even with a restore of the schema; recovery plan and Data Owner responsibility required |
 
 `database_schema` names the DB Owner; `destructive_migration` adds the Data Owner.

@@ -21,7 +21,7 @@ def inspect(root, state):
     path = safe_path(root, f"Docs/Work/{state['task_id']}/CLARIFICATIONS.json")
     required = state.get('planning_version') == 1
     if not required and not path.exists():
-        return {'result': 'NOT_CONFIGURED', 'errors': [], 'questions': [],
+        return {'result': 'NOT_CONFIGURED', 'errors': [], 'questions': [], 'next_action': 'CONTINUE',
                 'reason': 'Legacy task has no structured planning evidence; revise to enable it'}
     errors = []
     questions = []
@@ -57,7 +57,9 @@ def inspect(root, state):
                 errors.append(f"clarification {question['id']} references unknown acceptance criteria")
     except (PipelineError, OSError, ValueError, KeyError, TypeError) as exc:
         errors.append(f'planning clarification: {exc}')
-    return {'result': 'NEEDS_INPUT' if errors else 'CLEAR', 'errors': errors,
+    action = ('REPAIR_RECORD' if any(not error.startswith('unresolved material clarification ') for error in errors)
+              else 'CHECK_EXISTING_REQUIREMENTS' if errors else 'CONTINUE')
+    return {'result': 'NEEDS_INPUT' if errors else 'CLEAR', 'errors': errors, 'next_action': action,
             'questions': questions, 'required': required}
 
 

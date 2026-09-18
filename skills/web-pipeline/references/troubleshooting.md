@@ -77,9 +77,9 @@
 
 | 문자열 | 원인 | 복구 |
 |---|---|---|
-| `failed-attempt limit reached; use loop renew --task` / `iteration active-time limit reached; use loop renew --task` | task budget 소진 | **멈추고 사용자에게 보고.** 승인받으면 `python -m web_pipeline loop renew --task <id> --reason "<user words>" --extra-attempts N --extra-minutes M` |
-| `queue step limit reached; use loop renew --queue --extra-attempts` / `queue active-time limit reached; use loop renew --queue --extra-minutes` | queue budget 소진(`PAUSED_LIMIT`) | 위와 같이 사용자 승인 후 `loop renew --queue ...` |
-| `Interrupted verification reservation; inspect processes then loop renew --task to settle budget` | run 도중 프로세스가 죽음 | 남은 check 프로세스를 PID 로 확인·종료 → 사용자 승인 후 `loop renew --task` |
+| `failed-attempt limit reached; use loop renew --task` / `iteration active-time limit reached; use loop renew --task` | task budget 소진 | 기존 구체적 재개/갱신 요청을 먼저 확인하고 그 범위에서 실행한다. 없을 때만 추가 예산 결정을 구한다. 적용 명령: `python -m web_pipeline loop renew --task <id> --reason "<user words>" --extra-attempts N --extra-minutes M` |
+| `queue step limit reached; use loop renew --queue --extra-attempts` / `queue active-time limit reached; use loop renew --queue --extra-minutes` | queue budget 소진(`PAUSED_LIMIT`) | 기존 구체적 요청이 있으면 중복 질문 없이 `loop renew --queue ...`; 없을 때만 질문 |
+| `Interrupted verification reservation; inspect processes then loop renew --task to settle budget` | run 도중 프로세스가 죽음 | 남은 check 프로세스와 소유권 확인 → 종료된 실행의 효과 조사 → 이미 승인된 복구/예산 요청 범위에서 `loop renew --task`. 살아 있는 다른 작업은 종료하지 않음 |
 | `same-failure limit reached` / `external retry limit reached` | 동일 failure fingerprint 3회 / 외부 BLOCKED 2회 | `loop renew` 로 풀리지 않는다. 재시도 중단, 원인과 log 를 사용자에게 보고 |
 | `Unfinished action; inspect status and recover explicitly` (`BUSY`) | 완료되지 않은 lease | 작업을 마쳤으면 `loop complete --token <t> --outcome <o> --decision <json>`, 세션이 끊겼으면 `loop status` 로 token·프로세스 확인 후 `loop recover --token <t> --reason "<inspection notes>"` → `loop retry --task <id> --reason "<what changed>"` |
 | `Task state changed during action; recover explicitly` / `Task revision changed...` / `Task scope changed...` | lease 중 수동 `run`/`transition`/`revise`/문서 편집 | `loop recover` → `loop retry`. lease 중에는 코드만 편집한다 |
@@ -94,8 +94,8 @@
 |---|---|---|
 | `Current local review required: review --task <id> --decision <JSON>, or loop reviewed completion` | standard T1/T2 의 self-review 없음 | diff 와 completion report 를 검토 → `python -m web_pipeline review --task <id> --decision <file>` |
 | `Local review is stale; review the verified source and completion report` | review 후 코드/run 변경 | completion run 재실행 → 다시 `review` |
-| `missing valid <phase> approval for exact role <role> ...` | 필요한 승인 없음·stale | `python -m web_pipeline approval-request --task <id> --phase <phase>` → `request` 를 사용자에게 제시 → 동의 원문으로 `approve --task <id> --record <file>` |
-| `Stale or mismatched approval request: <key>` / `User approval fingerprint is stale` / `User approval does not bind the completion summary bytes` | 레코드가 현재 request 와 다름 | `approval-request` 재실행, 새 값으로 레코드 작성, 사용자에게 다시 확인 |
+| `missing valid <phase> approval for exact role <role> ...` | 필요한 승인 없음·stale | `approval-request` → 현재 STATE·기존 대화·기록 대조 → 같은 범위의 실제 동의 전사 또는 증거 복구 → 새 결정이 남을 때만 질문 |
+| `Stale or mismatched approval request: <key>` / `User approval fingerprint is stale` / `User approval does not bind the completion summary bytes` | 레코드가 현재 request 와 다름 | 현재 request와 이전 동의의 바인딩을 대조. 단순 전사 오류는 원문대로 복구. 실제 범위·리비전·증거 변경이면 변경점을 제시한 뒤 새 동의 |
 | `Design approval must precede implementation` | IN_PROGRESS 이후 design 승인 시도 | design 승인은 `DRAFT`/`READY`/`BLOCKED` 에서만 기록된다. `revise` → `prepare` → design 승인 → 진행 |
 | `Strict policy requires signed approvals; user receipts are not accepted` / `an external trust file is required (--trust or WEB_PIPELINE_TRUST)` | strict policy | 사람 승인자의 서명 레코드 + 프로젝트 외부 trust 파일. 에이전트가 키를 만들지 않는다 |
 

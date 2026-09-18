@@ -1,6 +1,6 @@
 # Exact implementation order for connected components
 
-Use an explicit implementation group when new provider and consumer code must
+A small connected feature may be one task spanning multiple components. Do not split it solely to create a group. For already split tasks, use an explicit implementation group when new provider and consumer code must
 both exist before either member's existing completion tests can pass. This changes
 scheduling only: Task contract/integration checks stay required and Phase repeats
 the connected verification after every member's completion and review.

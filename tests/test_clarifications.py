@@ -37,6 +37,18 @@ class ClarificationTests(unittest.TestCase):
         with self.assertRaisesRegex(PipelineError, 'planning|clarification'):
             prepare_task(self.root, self.task)
 
+    def test_diagnostic_separates_record_repairs_from_unresolved_requirements(self):
+        from web_pipeline.clarifications import report
+        self.assertEqual('REPAIR_RECORD', report(self.root, self.task)['next_action'])
+        data = record_fixture_planning(self.root, self.task)
+        self.assertEqual('CONTINUE', report(self.root, self.task)['next_action'])
+        data['questions'] = [self.question()]
+        self.save(data)
+        self.assertEqual('CHECK_EXISTING_REQUIREMENTS', report(self.root, self.task)['next_action'])
+        # An unresolved question must not hide a separate malformed record.
+        atomic_json(self.directory / 'ACCEPTANCE.json', [])
+        self.assertEqual('REPAIR_RECORD', report(self.root, self.task)['next_action'])
+
     def save(self, data):
         atomic_json(self.directory / 'CLARIFICATIONS.json', data)
 

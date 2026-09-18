@@ -14,9 +14,9 @@
 1. **먼저 물어보지 말고 확인한다.**
    `python -m web_pipeline approval-request --task <TaskId> --phase design|review|release|exception [--check-id <id>]`
    - `NO_APPROVAL_REQUIRED`, `SATISFIED` → 묻지 않고 계속한다. 영수증도 전이도 생기지 않는다.
-   - `AWAITING_USER` → 실제로 빠졌거나 무효인 승인 사유가 들어 있다.
+   - `AWAITING_USER` → 기록 누락·불일치 진단이다. `CHECK_EXISTING_CONSENT`에 따라 이전 실제 동의와 현재 바인딩을 대조한다. 이미 승인한 동일 범위라면 전사하고 재검사한다. 저장된 옛 request 파일보다 현재 STATE와 새 조회 결과를 우선한다.
 2. **기술적 선행 조건을 먼저 해결한다.** 실패한 check를 둔 채 허락부터 구하지 않는다.
-3. **한 번에 묶어 묻는다.** 그 단계에 필요한 책임을 모두 한 질문에 담는다. 역할별·단계별로 쪼개 묻지 않는다. 구체적인 범위, 책임, 위험, 조건, 리비전/핑거프린트, 제외 사항을 보여 준다. review/release는 묶인 Full 증거도 보여 준다. 응답을 기다리는 동안 반환된 요청 JSON을 바꾸지 않는다.
+3. **실제 새 결정만 한 번에 묻는다.** 같은 단계의 책임을 역할별로 쪼개 묻지 않는다. 구체적인 범위, 책임, 위험, 조건, 리비전/핑거프린트, 제외 사항을 보여 준다. review/release는 현재 완료 증거도 보여 준다. 다음 단계의 미래 증거를 미리 승인받거나 선택적 보관 질문을 끼워 넣지 않는다. 응답 대기 중 바인딩이 바뀌면 변경점을 설명한다.
 4. **명확한 승인을 받은 뒤** 요청 JSON에 `outcome: "APPROVED"`, 실제 `user_message`, 실제 `presented_scope`, 사실대로의 `source_reference`를 더해 `Docs/Work/<TaskId>/` 아래에 저장하고:
    `python -m web_pipeline approve --task <TaskId> --record <파일>`
    그 다음 평소대로 재검증·전이한다.

@@ -306,6 +306,16 @@ class ValidateWithoutTasksTests(Temp):
         self.assertEqual('FAIL', result['status'], result)
         self.assertTrue(any('no tasks' in e for e in result['errors']), result)
 
+    def test_development_readiness_still_requires_full_checks(self):
+        from web_pipeline.common import load_config
+        root = self.ready_project()
+        config = load_config(root)
+        check_id = config['verification']['requirements']['backend']['Full'][0]
+        next(c for c in config['verification']['commands'] if c['id'] == check_id)['enabled'] = False
+        atomic_json(root / 'pipeline.config.yaml', config)
+        with self.assertRaisesRegex(PipelineError, 'Required project command'):
+            load_config(root)
+
 
 class LockfileRuleTests(unittest.TestCase):
     def test_default_lock_rule_matches_lockfiles_not_words_containing_lock(self):

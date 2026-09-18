@@ -66,15 +66,16 @@ non-PASS until evidence settles it. Active time sums Fast/Full summary intervals
 not wall time since the first run. Baseline/Policy/Release retain their phase gates
 and command timeouts; they do not spend the Fast/Full failed-run budget.
 
-Reaching a limit pauses automatic work. User-requested `loop renew --task ...`
+New adoption defaults to `time_budget_mode: warn`: cumulative time produces a warning, not a stop or another permission prompt. Missing mode in older configurations retains enforce. Individual command timeouts remain effective. Reaching an enforced limit pauses automatic work. User-requested `loop renew --task ...`
 appends additional minutes/failed-attempt budget without rewriting initial limits,
 past usage or source fingerprints. Revision preserves all budget history. Renew
 does not reset same-failure/external guards, approve exceptions, or grant readiness.
 There is no reset API. Old accounting migrates explicitly through renew with its
 original block and evidence hashes retained; see the continuous runbook.
 
-Time-budget exhaustion remains BLOCKED/non-PASS and spends a failed attempt, but
-does not consume external retries or clear the existing same-failure sequence.
+Time-budget exhaustion remains BLOCKED/non-PASS. A conclusive budget-only result
+refunds its reserved failed attempt; mixed or unknown failures do not. It does not
+consume external retries or clear the existing same-failure sequence.
 Actual spawn/execution blockers still consume external retries. Command timeout
 independent of the overall time budget remains a real failed check.
 

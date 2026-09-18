@@ -98,7 +98,7 @@ check 명령의 `argv[0]` 는 PATH/PATHEXT 로 해석되므로 Windows 에서도
 | `Release` | DONE + T4 | 현재 completion 증거 + release 승인 필요 | `release_run`, `release_status=READY` |
 
 - completion 프로필: `verification.scopes` 없음 → `Full`; 있음 → `Phase`(SCOPE level phase) 또는 `Task`.
-- Fast/Task/Phase/Full 은 실행 전 policy gate 와 budget 을 검사하고 attempt 를 1 차감한다(PASS 면 failed_attempts 환불). completion 프로필 시작 시 기존 `full_run` 은 지워진다.
+- Fast/Task/Phase/Full 은 실행 전 policy gate 와 budget 을 검사하고 attempt 를 1 차감한다(PASS 또는 순수 시간 예산 중단이면 failed_attempts 예약분 환불; 중단 결과는 BLOCKED 유지). completion 프로필 시작 시 기존 `full_run` 은 지워진다.
 - T3/T4, 보호 변경, broad path(`pipeline.config.yaml`, `package.json`, lock 파일 등), 소유 component 가 모호한 경로는 scope 를 프로젝트 전체로 확장한다.
 
 ## 5. `loop` 자동 진행
@@ -126,7 +126,7 @@ repeat:
 | `COMPLETE` | 모든 task DONE + gate 통과 | 보고, 필요 시 `archive` |
 | `WAITING` | `scope: workspace`(미완료 Git 작업) 또는 `tasks[].reason` | 원인 해결(승인, 의존성, BLOCKED 등) 후 `loop retry --task --reason` → `next` |
 | `BUSY` | 끝나지 않은 lease 존재 | `loop status` 로 token 확인 → `complete`, 또는 프로세스 점검 후 `loop recover` → `loop retry` |
-| `PAUSED_LIMIT` | queue/task budget 소진 | 사용자에게 보고. 사용자가 승인하면 `loop renew`. 자체 갱신 금지 |
+| `PAUSED_LIMIT` | queue/task budget 소진 | 강제 한도와 기존 구체적 갱신 요청을 확인. 해당 요청이 있으면 한 번 renew; 없을 때만 추가 예산 질문. warn 시간은 중단 아님 |
 | `FAIL` | stderr 오류 | `troubleshooting.md` |
 
 revision 이 바뀐 task 는 `loop reconcile` 전까지 진행되지 않는다. 완료된 큐는 다음 `loop start` 때 `Docs/Work/AUTOPILOT-<queue_id>.json` 으로 보존된다.

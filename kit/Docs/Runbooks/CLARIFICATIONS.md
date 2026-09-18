@@ -111,3 +111,7 @@ natural-language answer was interpreted correctly, or authenticate a chat transc
 The agent must perform the semantic analysis; explicit user answers and meaningful
 scenario-based verification remain necessary. A repository writer is not an external
 trust boundary merely because records have hashes.
+
+## Diagnostic next action
+
+`next_action: REPAIR_RECORD` means fix malformed/missing records locally, not ask the user to debug JSON. `CHECK_EXISTING_REQUIREMENTS` means look for an applicable prior answer or authoritative source, then ask only unresolved material questions. CLEAR and legacy NOT_CONFIGURED return CONTINUE without claiming readiness. Do not create questions merely to fill the six analysis areas; concise supported findings are sufficient. Continue independent authorized work while a dependent question is pending.

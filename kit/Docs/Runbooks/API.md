@@ -50,7 +50,8 @@ parsing, deduplicate by event ID, and make handlers idempotent. Outbound calls u
 non-production credentials and sandbox endpoints in every verification environment;
 production endpoints are never an implied verification step.
 
-For a new connected feature, define the contract first and use an explicit
+For a new connected feature, define the contract first. One task may cover both
+participants. If deliberately split into member tasks, use an explicit
 [implementation group](IMPLEMENTATION_GROUPS.md) when provider and consumer code
 must both exist for member completion tests. Task completion includes the
 contracts of every affected participant; Full and Release include every declared

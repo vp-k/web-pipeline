@@ -4,7 +4,7 @@
 
 An adopted project starts with `project.mode: "project"` and `project.ready: false`. Before readiness, set all six `sources` to existing repository-relative documents, declare supported domains, configure risk/path coverage, and register proven commands as argv arrays. Each command has `id`, `enabled`, `profiles`, `argv`, `cwd`, `timeout_seconds`, `artifacts`, and a non-production `environment`. Shell strings and compound interpreters (`sh -c`, `cmd /c`, PowerShell `-Command`) are rejected.
 
-Requirements name command IDs by domain and profile. Release inherits Full. A missing or disabled requirement is NOT_RUN and fails the profile. Production commands are forbidden: Release establishes readiness only.
+Requirements name command IDs by domain and profile. Development readiness requires enabled Policy/Baseline/Fast/Full checks for supported domains. Release-only definitions may remain disabled until Release is requested; the Release runner reports them NOT_RUN and cannot grant readiness. Release inherits Full. A missing or disabled requirement is NOT_RUN and fails the profile. Production commands are forbidden: Release establishes readiness only.
 
 ## Approval policy
 
@@ -27,7 +27,7 @@ Standard receipts never need a trust file; only existing signed records do. Chan
    components/source roots and register the dependency and contract adapters.
    Legacy absence warns NOT_CONFIGURED and does not prove import isolation.
 5. Keep hosting/environment enforcement separate. Provision trust only for strict signed gates; standard work starts without it.
-6. Create the intended DRAFT task with `new --task ... --domains ... --base-ref ...`; strict project validation deliberately rejects an empty active task set.
+6. Create the intended DRAFT task with `new --task ... --domains ... --base-ref ...`. Progress validation permits an empty active task set with a warning; only the merge gate rejects it. Do not invent a setup task merely to run configuration validation.
 7. Set `ready: true`, then run `python -m web_pipeline validate`. If it fails, return readiness to false while correcting configuration; kit mode is not a project bypass. Populate task documents, prepare, and capture Baseline before entering READY.
 
 `python -m web_pipeline status` is the read-only orientation command: it reports adoption, engine version, readiness, policy, enabled checks, every task's status/tier/revision/iteration, held locks with owner liveness, the queue and a `next` hint. It never raises for an unadopted or not-ready project.
@@ -72,3 +72,9 @@ Go and PHP examples are `["go", "test", "./..."]` and `["php", "vendor/bin/phpun
 Checks receive `PIPELINE_EVIDENCE_DIR`, `PIPELINE_CHECK_ID`, `PIPELINE_TASK_ID` and `PIPELINE_PROFILE`; `WEB_PIPELINE_TRUST` is removed from their environment. A check must finish its descendants: the engine terminates the process tree on timeout and fails a command that abandons a running child even when the parent exited zero.
 
 For legacy installations, follow [the explicit migration procedure](../Governance/MIGRATION_V1_TO_V2.md).
+
+## Scope setup to the product
+
+Read [PRODUCT_FIRST.md](PRODUCT_FIRST.md). Select actual supported domains rather than configuring the kit's whole example catalog. Reuse existing source documents and check commands. Six source roles may reference fewer substantive files; no engine gate requires six new documents. Readiness still requires all applicable checks, not dummy commands or disabled requirements. Once entry gates pass, proceed to the requested feature.
+
+New adoption uses advisory cumulative time (`iteration_limits.time_budget_mode: "warn"`). Choose `enforce` for a requested hard time cap. Existing absent-mode configs and queues retain enforce; config changes invalidate fingerprints and require normal revision, not manual STATE edits.

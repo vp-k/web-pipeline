@@ -41,5 +41,5 @@ An AI may investigate, implement within an approved design, draft an ADR, and pr
 
 ## Stop conditions
 
-Stop and record BLOCKED when a required owner, valid approval, safe test environment, recovery evidence, source revision, or credential boundary is absent. Do not solve the absence by weakening the policy.
+Do not cross a protected gate when a required decision, safe test environment, recovery evidence, source revision or credential boundary is absent. First inspect existing consent and repair records or local environment problems within the request. Use BLOCKED when the prerequisite cannot be restored by authorized work. In standard, roles describe responsibilities and do not require finding named human owners or trust files. See [continuation](../Runbooks/CONTINUATION.md); never weaken the policy to claim success.
 

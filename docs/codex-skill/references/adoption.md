@@ -58,9 +58,9 @@ remaining implementation work reported; it does not authorize a new feature.
 3. **Validate one complete feature.** Select a small feature already in the user's
    requested scope that crosses the actual application boundaries. Define observable
    acceptance criteria for UI interaction, API response, persistence and applicable
-   error paths; omit absent layers with a reason. For connected backend/frontend
-   work, use prepared member tasks and a Phase with an explicit implementation
-   group: external prerequisites -> all member Baselines/entry gates -> backend
+   error paths; omit absent layers with a reason. A small connected feature may be one task across layers. When intentionally
+   split members require each other before verification, use prepared member tasks
+   and a Phase with an explicit implementation group: external prerequisites -> all member Baselines/entry gates -> backend
    implementation (including persistence when needed) -> frontend implementation
    -> unchanged member Fast/Task/review gates -> Phase integration/E2E and review.
    Keep real client/server/storage interactions in the evidence; mocks alone do
@@ -86,3 +86,7 @@ stack and boundaries; an unrelated feature does not restart this sequence. If th
 setup or integrated-flow proof is missing or invalidated, complete the missing
 stage within the authorized work before bulk implementation. Report an external
 blocker explicitly rather than declaring readiness from plugin installation.
+
+## Bound setup to the product
+
+Reuse existing substantive documents for the six source roles (roles may share a file), existing commands and valid evidence. Choose actual domains; the full kit catalog is not a backlog. Do not build generic adapters, CI services or pipeline tooling before a requested feature unless a demonstrated blocker requires them. Adoption alone does not authorize a demonstration feature.

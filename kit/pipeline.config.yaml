@@ -1555,6 +1555,7 @@
     ]
   },
   "iteration_limits": {
+    "time_budget_mode": "warn",
     "total_attempts": 5,
     "same_failure": 3,
     "external_retries": 2,

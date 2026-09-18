@@ -89,7 +89,7 @@ python -m web_pipeline validate --task APP-001
 - `prepare` 이후 task 문서·설정·인용 문서를 고치면 fingerprint 가 stale 이다. `revise --task APP-001 --reason "..."` 로 DRAFT 로 돌아가 다시 prepare + Baseline.
 - 완료 프로필은 `verification-plan --task APP-001` 의 `profile` 이다: `verification.scopes` 가 없으면 `Full`, 있으면 `Task`.
 - 완료 run 이 PASS 가 아니면 REVIEW 로 못 간다. 고치고(IN_PROGRESS/VERIFYING 에서) 다시 run 한다. 완료 run 뒤에 소스를 바꾸면 그 run 은 무효다.
-- `review-decision.json`: `{"choice","rationale","alternatives":[≥1],"risks":[]}`. `pipeline-reviewer` 서브에이전트가 새 컨텍스트에서 diff 와 증거를 읽고 작성한다. 사람의 승인이 아니다.
+- `review-decision.json`: `{"choice","rationale","alternatives":[≥1],"risks":[]}`. 사용 가능한 `pipeline-reviewer`가 diff와 증거를 검토한다. 기능이 없으면 별도 로컬 검토 후 자체 리뷰로 기록한다. 사람의 승인이 아니다.
 - 증거는 `Reports/Pipeline/<run-id>/`(`summary.json`, `logs/`, `artifacts/`, `screenshots/`)에 남는다. DONE 이후 보존은 `archive --task APP-001`.
 
 ## 5. frontend task 의 스크린샷
@@ -121,3 +121,7 @@ python -m web_pipeline validate --task APP-001
 | `run --profile Release` (DONE 이후, release 승인) | | | | | 필수 |
 
 보호 변경(`protected_changes`)이 붙은 task 는 tier 와 무관하게 T3 열을 따른다: 그 범위를 덮는 ADR, design/review 사용자 승인. `approval_policy: strict` 는 로컬 `review` 대신 서명된 승인을 요구한다. 요청한 tier 는 하한일 뿐이고, 엔진이 diff·도메인·path rule 로 더 높게 분류하면 높은 쪽이 적용된다. 승인 절차는 [approvals.md](approvals.md).
+
+## 제품 작업으로 이어가기
+
+[product-first.md](product-first.md)에 따라 요청된 첫 기능을 구현한다. 별도 시범 기능이나 범용 파이프라인 도구를 만들지 않는다. 작은 연결 기능은 단일 task로 충분하며, 기존 자료·명령·검증 증거를 재사용한다.

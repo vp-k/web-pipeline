@@ -50,3 +50,5 @@ trust file to `approval-request --trust <path>` as to the normal gates, or use
 Pass it to `approve --trust <path>` too when recording a receipt against signed
 prerequisite exception evidence.
 User receipts still need no trust setup; strict retains its signed gates.
+
+AWAITING_USER is a missing/invalid-record diagnostic. Inspect actual prior consent and current STATE first, transcribe unchanged scoped consent, repair evidence, then ask only if a new decision remains. Keep optional archive decisions out of required review questions.

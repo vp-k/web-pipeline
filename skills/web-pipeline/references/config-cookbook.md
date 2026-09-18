@@ -2,6 +2,8 @@
 
 `pipeline.config.yaml` 은 JSON 문법만 허용한다. 도입 단계에서 **저장소에 실제로 존재하고 직접 실행해 본 명령**만 배선한다. 통과용 더미 명령(`node -e ""`, 항상 0 을 돌려주는 스크립트)은 증거 위조다. `ready: true` 이후의 설정 편집은 그 자체가 T3 통제 변경이다(§6).
 
+레시피는 전체 도구를 새로 만들라는 요구가 아니다. 기존 명령을 실제 도메인에 연결하고, 없는 기능의 검사나 Release 전용 준비를 개발 선행 조건으로 만들지 않는다. [제품 우선 기준](product-first.md)을 따른다.
+
 ## 1. 표기법
 
 레시피는 파일 전체가 아니라 **패치**다. 점 표기 키는 그 경로의 값을 통째로 교체한다. 예외 둘: `verification.commands` 는 실제 파일에서 배열이며, 패치의 `<id>` 항목 필드를 덮어쓰고 `enabled: true` 로 바꾼다(기본 목록에 없는 id 는 새 항목, 적지 않은 필드는 기본값). `risk.path_rules` 는 배열 끝에 append 한다. 완성된 항목 하나의 실제 모양:
@@ -59,7 +61,7 @@ B=Baseline, F=Fast, U=Full, R=Release(Release 실행은 Full 목록을 포함). 
 
 `ready: true` 프로젝트는 설정 로드 때마다 검사하고, 어기면 모든 명령이 실패한다.
 
-- `policy_checks` 전부, 그리고 `supported_domains` 각 도메인의 **Baseline·Fast·Full·Release 네 목록의 모든 id** 가 `enabled: true` + 비어 있지 않은 `argv` + 존재하는 `cwd` 여야 한다(`Required project command <id> is disabled`). Release 를 실행하지 않아도 Release 목록은 검사된다.
+- `policy_checks` 전부, 그리고 `supported_domains` 각 도메인의 **Baseline·Fast·Full 세 목록의 모든 id** 가 `enabled: true` + 비어 있지 않은 `argv` + 존재하는 `cwd` 여야 한다(`Required project command <id> is disabled`). Release 전용 check는 일반 개발 준비를 막지 않는다. 정의와 프로필의 구조는 검사하며, 실제 Release 실행에서는 빠지거나 비활성인 check가 NOT_RUN으로 남아 통과하지 못한다.
 - `requirements` 는 12개 도메인 키를 전부 유지한다. 목록의 id 는 정의돼 있고 그 프로필을 `profiles` 에 포함해야 한다. `policy_checks` 의 id 는 `Policy` 프로필 필수.
 - 실행 시 필요한 check 가 disabled/미정의면 `NOT_RUN` → run FAIL.
 

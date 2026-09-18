@@ -464,6 +464,7 @@
       "type": "object",
       "additionalProperties": false,
       "properties": {
+    "time_budget_mode": {"enum": ["warn", "enforce"]},
         "total_attempts": {
           "type": "integer",
           "minimum": 1

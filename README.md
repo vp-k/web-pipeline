@@ -14,6 +14,8 @@ Claude Code 플러그인 **`web-pipeline`**: 웹 프로젝트에 위험 등급(T
 
 요구 사항: Python 3.11+, Git, 그리고 도입된 프로젝트에 `requirements-pipeline.txt`(`jsonschema`, `cryptography`, `Pillow`).
 
+2.12.0은 반복 승인 질문·누적 시간 중단·개발 전 Release 설정 부담을 줄였다. [점검 결과](docs/FRICTION_AUDIT.md)와 [제품 우선 도입 기준](skills/web-pipeline/references/product-first.md)을 참고한다. 기존 프로젝트는 관리형 업그레이드 전까지 이전 엔진과 설정을 유지한다.
+
 ## 구성
 
 | 항목 | 내용 |
@@ -24,7 +26,7 @@ Claude Code 플러그인 **`web-pipeline`**: 웹 프로젝트에 위험 등급(T
 | `/web-pipeline:loop [plan]` | 큐로 여러 작업을 정지 조건까지 계속 |
 | `/web-pipeline:upgrade [path] [--apply]` | 도입된 프로젝트의 엔진 업그레이드(백업·복원 포함) |
 | 스킬 `web-pipeline` | 위 작업의 규칙·레퍼런스(`skills/web-pipeline/`). 요청에 따라 자동 로드 |
-| 에이전트 `pipeline-reviewer` | 새 컨텍스트의 읽기 전용 리뷰어. T1/T2 로컬 리뷰 전에 사용 |
+| 에이전트 `pipeline-reviewer` | 사용 가능한 환경에서 T1/T2 로컬 리뷰에 사용. 기능 부재 시 별도의 실제 자체 리뷰를 기록 |
 
 ## 저장소 구조
 

@@ -34,8 +34,10 @@ presenting any approval question.
 - SATISFIED: existing decisions pass the unchanged approval validator for the
   current phase, revision, scope, source/evidence and exact exception check.
   Continue without another question or receipt. This creates no approval or state transition.
-- AWAITING_USER: a decision is missing, partial or invalid; inspect the returned
-  reason. Repair missing/invalid evidence before asking for another decision when
+- AWAITING_USER: a recorded decision is missing, partial or invalid; inspect the
+  reason and `next_action: CHECK_EXISTING_CONSENT`. Check actual earlier messages
+  against the unchanged bindings before asking. An old saved request is not current
+  state; inspect STATE and regenerate the diagnostic when appropriate. Repair missing/invalid evidence before asking for another decision when
   evidence repair is the actual blocker. Ask once for all currently required roles
   and decisions in that phase, using the actual scope and current evidence.
 

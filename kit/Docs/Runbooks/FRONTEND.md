@@ -16,7 +16,8 @@ not only mocked responses, before declaring an integrated feature complete.
 
 UI-only authorization is never sufficient. Sensitive action denial must be tested at the server boundary.
 
-For a new connected feature, define the API contract first and use an explicit
+For a new connected feature, define the API contract first. One task may cover
+both sides. If deliberately split into member tasks, use an explicit
 [implementation group](IMPLEMENTATION_GROUPS.md) when backend and frontend code
 must both exist for member completion tests. The sequence is all Baselines/entry
 gates, backend implementation, frontend implementation, member verification/review,

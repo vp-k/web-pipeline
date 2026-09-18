@@ -1,5 +1,14 @@
 # Changelog
 
+## 2.12.0 — 반복 중단 완화와 제품 중심 도입
+
+- 일반 개발 준비에서 Release 전용 check 활성화를 요구하지 않는다. Release 실행 시 필수 검사·승인·NOT_RUN 판정은 유지한다.
+- 새 도입은 누적 시간 `warn`, 기존 미지정 설정/큐는 `enforce` 유지. 명령별 timeout과 실패·반복·외부 재시도·스텝 한도는 유지한다. 순수 시간 중단은 실패 시도 예약만 환불하고 BLOCKED와 사용량을 보존한다.
+- 승인 진단에 `CHECK_EXISTING_CONSENT`, 기획 진단에 `REPAIR_RECORD`/`CHECK_EXISTING_REQUIREMENTS`를 제공해 기록 문제를 새 사용자 질문으로 처리하지 않는다.
+- 복구 가능한 실패·리스·Git 문제는 기존 요청 안에서 해결한다. 선택적 보관·리뷰 도구 부재·세션 전환이 반복 허락 질문을 만들지 않도록 지침을 통일했다. 보호 결정·예외·Release·운영 승인은 유지한다.
+- 도입은 실제 도메인·기존 문서/명령을 재사용하고 요청된 첫 기능으로 검증한다. 도입 전용 요청의 시범 기능과 작은 연결 기능의 강제 task/Phase 분할을 없앴다.
+- 기존 프로젝트의 엔진·설정·거버넌스는 자동으로 덮어쓰지 않는다. 상세 점검과 이행 기준은 `docs/FRICTION_AUDIT.md`.
+
 ## 2.11.0 — Claude Code plugin
 
 첫 Claude Code 판. 엔진은 `codex-web-pipeline` 2.10.1에서 이어진다.

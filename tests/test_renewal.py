@@ -172,7 +172,7 @@ class RenewalTests(unittest.TestCase):
         self.assertEqual(1, final['external_retries'])
         self.assertEqual(1, final['same_failure'])
         self.assertEqual('a' * 64, final['last_failure'])
-        self.assertEqual(1, final['failed_attempts'])
+        self.assertEqual(0, final['failed_attempts'])
 
     def test_real_spawn_failure_still_spends_external_budget(self):
         self.configure(lambda c: next(x for x in c['verification']['commands'] if x['id'] == 'unit').update(argv=['missing-budget-test-executable']))

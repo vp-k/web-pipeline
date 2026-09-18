@@ -96,6 +96,22 @@ class ReleaseIntegrationTests(unittest.TestCase):
         return rel
 
     def test_t4_release_requires_all_signers_then_reaches_ready(self):
+        self.release_lifecycle()
+
+    def test_development_does_not_require_release_only_setup_but_release_still_fails(self):
+        command = copy.deepcopy(self.config['verification']['commands'][0])
+        command.update(id='release-only-fixture', profiles=['Release'], enabled=False, argv=[])
+        self.config['verification']['commands'].append(command)
+        self.config['verification']['requirements']['payment']['Release'].append('release-only-fixture')
+        atomic_json(self.root / 'pipeline.config.yaml', self.config)
+        # This is the pre-existing configuration under test, not an infrastructure
+        # change made by the payment task (whose base_ref is HEAD).
+        subprocess.run(['git', 'add', '.'], cwd=self.root, check=True)
+        subprocess.run(['git', 'commit', '-qm', 'release-only setup fixture'], cwd=self.root, check=True)
+        prepare_task(self.root, self.task, 'fixture-implementer')
+        self.release_lifecycle(missing_release_check=True)
+
+    def release_lifecycle(self, missing_release_check=False):
         design = [self._approval("design", "Payment Owner", "payment-owner"),
                   self._approval("design", "Tech Owner", "tech-owner")]
         state = read_state(self.root, self.task)
@@ -140,6 +156,15 @@ class ReleaseIntegrationTests(unittest.TestCase):
         write_state(self.root, state)
         release = run_profile(self.root, self.task, "Release", trust_path=self.trust,
                               run_id="pay-release-001")
+        if missing_release_check:
+            self.assertNotEqual('PASS', release['status'])
+            check = next(c for c in release['checks'] if c['id'] == 'release-only-fixture')
+            self.assertEqual('NOT_RUN', check['status'])
+            state = read_state(self.root, self.task)
+            self.assertEqual('DONE', state['status'])
+            self.assertEqual('NOT_READY', state['release_status'])
+            self.assertIsNone(state['release_run'])
+            return
         self.assertEqual("PASS", release["status"])
         self.assertEqual("READY", read_state(self.root, self.task)["release_status"])
         policy = policy_check(self.root, task_id=self.task, trust_path=self.trust)

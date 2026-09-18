@@ -17,7 +17,7 @@ from .common import (PipelineError, atomic_json, code_snapshot, load_config,
 from .evidence import (collect_artifacts, failure_fingerprint, policy_snapshot,
                        acceptance_checks, required_checks, validate_artifact_hashes,
                        validate_screenshots)
-from .budget import enforce_task, finish_run, seconds_between, task_remaining
+from .budget import enforce_task, finish_run, seconds_between, task_remaining, time_mode, time_warnings
 from . import boundaries
 from .test_results import validate_report
 from . import scopes
@@ -194,7 +194,7 @@ def run_profile(root: Path | str, task_id: str, profile: str,
             iteration[attempts_key] = int(iteration.get(attempts_key, 0)) + 1
             iteration["started_utc"] = iteration.get("started_utc") or started
             # Reserve an unresolved (non-PASS) attempt durably before execution.
-            # A conclusive PASS refunds only this reservation, never history.
+            # PASS or a conclusive budget-only pause refunds this reservation.
             iteration['failed_attempts'] += 1
             iteration['pending_run'] = {'run_id': run_id, 'started_utc': started}
             if profile in scopes.COMPLETION:
@@ -208,7 +208,7 @@ def run_profile(root: Path | str, task_id: str, profile: str,
             write_state(root, state)
         before_fingerprint = fingerprint
         deadline = None
-        if profile in {"Fast", "Task", "Phase", "Full"}:
+        if profile in {"Fast", "Task", "Phase", "Full"} and time_mode(config['iteration_limits']) == 'enforce':
             deadline = time.monotonic() + max(0.0, task_remaining(config, state['iteration']) - seconds_between(started, utc_now()))
         commands = _command_map(config)
         boundary_check = config.get('boundaries', {}).get('dependency_check')
@@ -305,6 +305,10 @@ def run_profile(root: Path | str, task_id: str, profile: str,
                                             "duration_ms": 0, "log": None, "reason": str(exc)}],
                        "artifacts": collect_artifacts(run_dir), "failure_fingerprint": None}
             summary["failure_fingerprint"] = failure_fingerprint(summary["checks"], run_dir=run_dir, root=root)
+        if profile in {"Fast", "Task", "Phase", "Full"}:
+            summary['warnings'] = time_warnings(
+                config['iteration_limits'], state['iteration'], f'Task {task_id}',
+                seconds_between(started, summary['completed_utc']))
         validate_schema(root, "pipeline-summary", summary)
         atomic_json(run_dir / "summary.json", summary)
 

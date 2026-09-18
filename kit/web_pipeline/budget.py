@@ -57,6 +57,35 @@ def task_remaining(config, iteration):
     return (config['iteration_limits']['elapsed_minutes'] + minutes) * 60 - iteration['active_seconds']
 
 
+def time_mode(limits):
+    """Absent policy preserves existing installations' hard time limits."""
+    mode = limits.get('time_budget_mode', 'enforce')
+    if mode not in {'warn', 'enforce'}:
+        raise PipelineError('Invalid time_budget_mode; expected warn or enforce')
+    return mode
+
+
+def time_warnings(limits, accounting, label, extra_seconds=0.0):
+    if time_mode(limits) != 'warn' or accounting.get('budget_version') != 1:
+        return []
+    minutes, _ = additions(Path('.'), accounting)
+    threshold = (limits.get('elapsed_minutes', 120) + minutes) * 60
+    used = accounting['active_seconds'] + extra_seconds
+    if used < threshold:
+        return []
+    return [f'{label}: cumulative active time {used / 60:.2f} minutes reached '
+            f'{threshold / 60:g} minutes; advisory only (time_budget_mode=warn)']
+
+
+def budget_only(summary):
+    """Refund only a conclusive budget pause, never mixed or unknown failures."""
+    nonpass = [check for check in summary['checks']
+               if check['status'] not in {'PASS', 'NOT_APPLICABLE'}]
+    return (summary['status'] == 'BLOCKED' and bool(nonpass)
+            and all(check['status'] == 'BLOCKED' and check.get('blocker_kind') == 'budget'
+                    for check in nonpass))
+
+
 def enforce_task(config, state):
     limits, iteration = config.get('iteration_limits', {}), state.get('iteration', {})
     # Keep original hard-stop behavior for unmigrated installations.
@@ -72,7 +101,7 @@ def enforce_task(config, state):
             raise BudgetLimit('Interrupted verification reservation; inspect processes then loop renew --task to settle budget')
         if iteration['failed_attempts'] >= limits.get('total_attempts', 5) + attempts:
             raise BudgetLimit('failed-attempt limit reached; use loop renew --task')
-        if task_remaining(config, iteration) <= 0:
+        if time_mode(limits) == 'enforce' and task_remaining(config, iteration) <= 0:
             raise BudgetLimit('iteration active-time limit reached; use loop renew --task')
     if iteration.get('same_failure', 0) >= limits.get('same_failure', 3):
         raise PipelineError('same-failure limit reached')
@@ -87,7 +116,7 @@ def finish_run(iteration, summary):
         raise PipelineError('Verification budget reservation mismatch')
     duration = seconds_between(summary['started_utc'], summary['completed_utc'])
     iteration['active_seconds'] += duration
-    if summary['status'] == 'PASS':
+    if summary['status'] == 'PASS' or budget_only(summary):
         iteration['failed_attempts'] -= 1
     iteration['pending_run'] = None
 

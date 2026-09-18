@@ -1,7 +1,10 @@
 # Archive and recovery
 
 Archive only when the user requests it, after intended integration and before
-unrelated source changes. It moves the sole task STATE into historical storage;
+unrelated source changes. An explicit standing request may cover later completed
+tasks in its stated scope; do not ask again for each task. Optional archival is
+not a condition for completion reporting and must not be bundled into a required
+review approval question. Every archive still passes the existing gates. It moves the sole task STATE into historical storage;
 archived evidence is never current readiness. Existing task IDs cannot be reused.
 
 `archive --task WEB-101` validates ordinary DONE work and captures its exact

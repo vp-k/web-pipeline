@@ -71,6 +71,7 @@ def approval_request(root, task_id, phase, check_id=None, *, trust_path=None):
         request = _request(root, config, state, phase, check_id, allow_unneeded=True, trust_path=trust_path)
         if request is None:
             return {'status': 'NO_APPROVAL_REQUIRED', 'task_id': task_id, 'phase': phase,
+                    'next_action': 'CONTINUE',
                     'instruction': 'Continue the authorized work without asking for approval. Verification and local review still apply.'}
         from .approval import validate_approvals, validate_exception
         try:
@@ -82,8 +83,10 @@ def approval_request(root, task_id, phase, check_id=None, *, trust_path=None):
                                    trust_path=trust_path, snapshot=snapshot, run_id=request.get('run_id'))
         except PipelineError as exc:
             return {'status': 'AWAITING_USER', 'request': request, 'reason': str(exc),
-                    'instruction': 'Resolve the reported missing decision or invalid evidence. Ask once for the currently required scope; do not request each role separately.'}
+                    'next_action': 'CHECK_EXISTING_CONSENT',
+                    'instruction': 'Inspect actual prior user messages for this unchanged phase and scope before prompting. Transcribe applicable explicit consent with approve, repair invalid evidence where possible, then rerun approval-request. If a decision remains missing, cite the project gate and ask once for that concrete decision and its current responsibilities; do not ask broadly for implementation/testing permission or bundle optional archival. Preserve separate design, review, exception and release decisions.'}
         return {'status': 'SATISFIED', 'request': request,
+                'next_action': 'CONTINUE',
                 'instruction': 'Current recorded approval already satisfies this phase. Do not ask again or create another receipt; continue through the normal gates.'}
 
 

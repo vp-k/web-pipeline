@@ -3,6 +3,7 @@
   "type": "object", "additionalProperties": false,
   "required": ["objective", "tasks"],
   "properties": {
+    "time_budget_mode": {"enum": ["warn", "enforce"]},
     "objective": {"type": "string", "minLength": 1},
     "completion_gate": {"enum": ["queue", "merge"], "default": "queue"},
     "implementation_groups": {"type": "array", "minItems": 1, "maxItems": 50, "items": {

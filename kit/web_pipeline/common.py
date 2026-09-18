@@ -301,7 +301,9 @@ def load_config(root, kit=False):
             raise PipelineError('Project is NOT_READY; configure sources, commands and Git baseline')
         needed = set(config['verification']['policy_checks'])
         for domain in config['project']['supported_domains']:
-            for profile in ('Baseline', 'Fast', 'Full', 'Release'):
+            # Development readiness does not imply Release readiness. Release-only
+            # checks remain declared and are required by the Release runner.
+            for profile in ('Baseline', 'Fast', 'Full'):
                 needed.update(requirements[domain][profile])
         for check_id in needed:
             if not definitions[check_id]['enabled']:

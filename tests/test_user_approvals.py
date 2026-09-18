@@ -241,8 +241,12 @@ class UserApprovalTests(unittest.TestCase):
     def test_review_request_needs_its_own_current_run_decision(self):
         self.review()
         self.assertEqual('AWAITING_USER', approval_request(self.root, self.task, 'review')['status'])
+        before = read_state(self.root, self.task)
+        self.assertEqual('CHECK_EXISTING_CONSENT', approval_request(self.root, self.task, 'review')['next_action'])
+        self.assertEqual(before, read_state(self.root, self.task))
         record_approval(self.root, self.task, self.consent('review'))
         self.assertEqual('SATISFIED', approval_request(self.root, self.task, 'review')['status'])
+        self.assertEqual('CONTINUE', approval_request(self.root, self.task, 'review')['next_action'])
         transition(self.root, self.task, 'IN_PROGRESS')
         self.assertEqual('PASS', run_profile(self.root, self.task, 'Full')['status'])
         transition(self.root, self.task, 'VERIFYING')

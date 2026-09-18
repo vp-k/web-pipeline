@@ -151,7 +151,7 @@ python -m web_pipeline validate --task SIGNUP-014
 
 ## 7. 리뷰 decision (`review --decision`)
 
-REVIEW 상태에서 `pipeline-reviewer` 서브에이전트가 diff 와 완료 run 의 `summary.json`·로그를 읽고 작성한다. 네 필드 모두 필수, 문자열은 공백만으로 채울 수 없고 `alternatives` 는 1개 이상이다. 이는 사람의 승인이 아니다. 문제가 있으면 기록하지 말고 `transition --status IN_PROGRESS` 로 되돌려 고친다.
+REVIEW 상태에서 사용 가능한 `pipeline-reviewer`가 diff와 완료 run의 `summary.json`·로그를 읽고 작성한다. 기능이 없으면 별도의 실제 로컬 검토를 수행하고 자체 리뷰로 기록한다. 네 필드 모두 필수, 문자열은 공백만으로 채울 수 없고 `alternatives` 는 1개 이상이다. 이는 사람의 승인이 아니다. 문제가 있으면 기록하지 말고 `transition --status IN_PROGRESS` 로 되돌려 고친다.
 
 ```json
 {

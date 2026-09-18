@@ -66,8 +66,8 @@ python "<skill>/scripts/pipeline.py" project --root "<project>" loop complete --
 ## Real stop conditions and recovery
 
 - COMPLETE: every queued revision has current DONE evidence and required approvals. Plans default to `completion_gate: "queue"`; merge_gate is NOT_APPLICABLE, not PASS. Set `completion_gate: "merge"` only when merge readiness was explicitly requested; its failure returns WAITING and prevents replacing the queue. Queue completion never deploys or merges automatically.
-- Unfinished Git integration: stop work across this checkout. `next` reports WAITING and refuses new actions; a pending action cannot be acknowledged as successful. Resolve and finish the operation or explicitly abort after inspection. A failed Git command must stop its caller even if Git left no operation marker. Preserve errors and changes; do not skip the failure or create another queue.
-- WAITING: no queued task can safely proceed. Report each missing approval, dependency, stale scope/evidence or external blocker and the next required decision. Independent eligible tasks are already considered before this result. Do not keep calling next on unchanged WAITING.
+- Unfinished Git integration: hold unrelated feature work while resolving the authorized integration in this checkout. `next` reports WAITING and refuses new actions; a pending action cannot be acknowledged as successful. Resolve and finish the operation or explicitly abort after inspection. A failed Git command must stop its caller even if Git left no operation marker. Preserve errors and changes; do not skip the failure or create another queue.
+- WAITING: no queued task can safely proceed. Inspect each cause and perform authorized record/environment repair or recovery before yielding. Report only genuinely unresolved external decisions or blockers. Independent eligible tasks are already considered before this result. Do not keep calling next on unchanged WAITING.
 - PAUSED_LIMIT: report both queue and task limits. A new user request to resume can authorize one bounded `loop renew` grant with that request's reason; no human name/trust is needed for budget renewal. Otherwise stop and ask for the needed budget. Do not self-renew repeatedly, edit initial limits, delete the queue, manufacture new tasks, or reset usage.
 - BUSY: an unfinished action owns the queue. Do not run a second worker. After a crash/session change, inspect task state, diffs, running processes and evidence; explicitly recover the exact token with inspection notes, then retry only when safe. Recovery does not undo or blindly replay work, and it never resets budgets.
 - Explicit user stop, revoked authority, or unavailable host execution also stops the loop.
@@ -110,3 +110,7 @@ upgrade. Preserve all STATE, queue events and Reports; renew reconstructs usage
 from retained reports/lease events, with conservative task usage for incomplete
 legacy evidence. Do not overwrite an adopted project's engine automatically just
 because this plugin is newer; read the project's continuous runbook upgrade notes.
+
+## Continuation diagnostics
+
+Follow the project CONTINUATION runbook. ACTION_REQUIRED is work for the agent. Resolve recoverable WAITING/FAIL inside the request; ask only for an actual unresolved decision. `time_budget_mode: warn` cumulative warnings do not require renew; absent mode keeps legacy enforce. Per-command deadlines and retry/step guards remain.

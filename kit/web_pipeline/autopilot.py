@@ -14,7 +14,7 @@ from .common import (PipelineError, atomic_json, canonical_hash, code_snapshot, 
                      utc_now, validate_schema)
 from .common import write_state
 from .budget import (BudgetLimit, additions, grant, migrate_queue, migrate_task,
-                     new_accounting, seconds_between, settle_interrupted)
+                     new_accounting, seconds_between, settle_interrupted, time_mode, time_warnings)
 from .runner import _enforce_iteration_limits, run_profile, validate_completion
 from .state import policy_check, transition
 from .local_review import ordinary_work, record_review, validate_decision
@@ -61,6 +61,8 @@ def start(root, plan, trust=None):
     root = Path(root).resolve()
     config = load_config(root)  # NOT_READY and kit are not execution modes.
     validate_schema(root, 'autopilot-plan', plan)
+    # Freeze the project default at creation; never reinterpret old checkpoints.
+    plan = {**plan, 'time_budget_mode': plan.get('time_budget_mode', time_mode(config['iteration_limits']))}
     identifiers = [item['task_id'] for item in plan['tasks']]
     if len(set(identifiers)) != len(identifiers):
         raise PipelineError('Duplicate queued task')
@@ -112,6 +114,7 @@ def status(root):
     paused = _limited(queue)
     return {'status': 'BUSY' if queue['lease'] else ('PAUSED_LIMIT' if paused else 'IDLE'), 'queue_id': queue['queue_id'],
             'paused_reason': paused,
+            'warnings': _time_warnings(root, queue),
             'steps': queue['steps'], 'lease': queue['lease'], 'events': queue['events'],
             'budget': {key: queue.get(key) for key in ('budget_version', 'active_seconds', 'renewals')},
             'tasks': [{**item, 'task_status': read_state(root, item['task_id'])['status'],
@@ -125,9 +128,22 @@ def _limited(queue):
     minutes, steps = additions(Path('.'), queue)
     if queue['steps'] >= queue['plan'].get('max_steps', 100) + steps:
         return 'queue step limit reached; use loop renew --queue --extra-attempts'
-    if queue['active_seconds'] >= (queue['plan'].get('elapsed_minutes', 120) + minutes) * 60:
+    if (time_mode(queue['plan']) == 'enforce'
+            and queue['active_seconds'] >= (queue['plan'].get('elapsed_minutes', 120) + minutes) * 60):
         return 'queue active-time limit reached; use loop renew --queue --extra-minutes'
     return None
+
+
+def _time_warnings(root, queue):
+    warnings = time_warnings(queue['plan'], queue, 'Queue')
+    # Diagnostics must not hide an existing lease during readiness repairs.
+    # Execution still uses normal project validation before each action.
+    config = load_config(root, kit=True)
+    for item in queue['items']:
+        state = read_state(root, item['task_id'])
+        warnings.extend(time_warnings(config['iteration_limits'], state['iteration'],
+                                      f"Task {item['task_id']}"))
+    return warnings
 
 
 def _claim(root, queue, item, state, config, worker, action, agent, reason, alternatives):
@@ -209,24 +225,26 @@ def advance(root, worker='claude', trust=None):
         raise PipelineError('Worker identity is required')
     with lock(root, 'autopilot'):
         queue = _load(root)
+        def respond(result):
+            return {**result, 'warnings': _time_warnings(root, queue)}
         if queue['lease']:
-            return {'status': 'BUSY', 'reason': 'Unfinished action; inspect status and recover explicitly'}
+            return respond({'status': 'BUSY', 'reason': 'Unfinished action; inspect status and recover explicitly'})
         while True:
             try:
                 require_settled_checkout(root)
             except PipelineError as exc:
                 _event(queue, 'WAITING', scope='workspace', reason=str(exc))
                 _save(root, queue)
-                return {'status': 'WAITING', 'scope': 'workspace', 'reason': str(exc)}
+                return respond({'status': 'WAITING', 'scope': 'workspace', 'reason': str(exc)})
             if all(read_state(root, i['task_id'])['status'] == 'DONE' for i in queue['items']):
                 result = _completion_result(root, queue, trust)
                 if result['status'] != 'COMPLETE':
                     _event(queue, 'WAITING', result=result)
                     _save(root, queue)
-                return result
+                return respond(result)
             reason = _limited(queue)
             if reason:
-                return {'status': 'PAUSED_LIMIT', 'reason': reason, 'steps': queue['steps']}
+                return respond({'status': 'PAUSED_LIMIT', 'reason': reason, 'steps': queue['steps']})
             config = load_config(root)
             from .implementation_groups import waits as implementation_waits
             group_waits = implementation_waits(root, config, queue, trust)
@@ -295,8 +313,8 @@ def advance(root, worker='claude', trust=None):
                     lease = _claim(root, queue, item, state, config, worker, action, agent,
                                    'First dependency-ready task in authorized order; next action derived from STATE and evidence', alternatives)
                     if agent:
-                        return {'status': 'ACTION_REQUIRED', **lease, 'checkpoint': QUEUE,
-                                'instruction': 'Perform the scoped action, record a decision, complete this token, then call loop next again. Do not end the turn here.'}
+                        return respond({'status': 'ACTION_REQUIRED', **lease, 'checkpoint': QUEUE,
+                                'instruction': 'Perform the scoped action, record a decision, complete this token, then call loop next again. Do not end the turn here.'})
                     try:
                         if action in {'Baseline', 'Fast', 'Task', 'Phase', 'Full'}:
                             summary = run_profile(root, name, action, trust_path=trust)
@@ -332,8 +350,8 @@ def advance(root, worker='claude', trust=None):
             if waits:
                 _event(queue, 'WAITING', reasons=waits)
                 _save(root, queue)
-                return {'status': 'PAUSED_LIMIT' if all(w['budget_limit'] for w in waits) else 'WAITING', 'tasks': waits}
-            return _completion_result(root, queue, trust)
+                return respond({'status': 'PAUSED_LIMIT' if all(w['budget_limit'] for w in waits) else 'WAITING', 'tasks': waits})
+            return respond(_completion_result(root, queue, trust))
 
 
 def complete(root, token, outcome, decision, trust=None):

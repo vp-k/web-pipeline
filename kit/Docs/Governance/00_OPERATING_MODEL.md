@@ -24,7 +24,7 @@ Guidance without enforcement is not control. A production credential unavailable
 4. `WEB-INV-04`: AI cannot approve payment, authentication, authorization, privacy, credentials, production data, irreversible migration, public API breakage, or production deployment.
 5. `WEB-INV-05`: Tests must not be removed, skipped, weakened, or narrowed to make an implementation pass.
 6. `WEB-INV-06`: Capture a pre-change Baseline wherever executable checks exist.
-7. `WEB-INV-07`: Repeated failure is bounded by failed-run, same-failure, external-retry, and active-time limits. User-requested renewal is additive and auditable, never a history reset or approval bypass.
+7. `WEB-INV-07`: Repeated failure is bounded by failed-run, same-failure and external-retry limits. Cumulative time is advisory in warn mode and enforced in enforce mode (legacy default). User-requested renewal is additive and auditable, never a history reset or approval bypass.
 8. `WEB-INV-08`: Frontend, backend, database, and external integration boundaries are explicit and connected by contracts.
 9. `WEB-INV-09`: The client is outside the trust boundary. Client validation, hidden UI, client prices, and client user IDs are never authoritative.
 10. `WEB-INV-10`: Completion requires evidence and all required approvals.

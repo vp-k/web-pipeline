@@ -29,6 +29,8 @@ class LifecycleTests(unittest.TestCase):
         # Keep the existing signed-approval regressions on their original policy.
         # New standard-policy behavior has a separate real lifecycle suite.
         config['approval_policy'] = 'strict'
+        # Retain explicit hard-budget regression coverage; warn has its own suite.
+        config['iteration_limits']['time_budget_mode'] = 'enforce'
         config['project'].update(mode='project', ready=True, supported_domains=['backend'])
         # Isolated fixture: the checker tests arithmetic rather than claiming real
         # application checks. Production config retains real domain requirements.

@@ -25,12 +25,18 @@ Start every session with `python -m web_pipeline status`. It is read-only and re
 - Before asking about protected work, inspect existing consent and recorded approvals. Do not repeat a question for a still-valid phase and scope. Group everything a phase requires into one concise question, after preparing the concrete decision and evidence. A design approval does not approve implementation results, exceptions, release readiness or production execution.
 - Resolve material questions during planning. Inspect existing evidence first; ask concrete questions when uncertainty changes scope, behavior, data, architecture or acceptance, and wait for the actual answer. Silence or your own proposal is never an answer. Record sources and resolutions in `CLARIFICATIONS.json` (`Docs/Runbooks/CLARIFICATIONS.md`).
 - With `verification.scopes`, ordinary tasks complete with Task and connected feature groups with a tracked Phase task (`Docs/Runbooks/VERIFICATION_SCOPES.md`). Unknown impact, broad inputs and protected or T3/T4 work expand to project-wide checks. Project-wide Full is not required after every small edit.
-- Local self-review (`review`) covers standard, unprotected T1/T2 work only. Have a fresh-context reviewer read the diff before you record it; write the decision JSON inside `Docs/Work/<TaskId>/`.
+- Local self-review (`review`) covers standard, unprotected T1/T2 work only. Use a fresh-context reviewer when available; otherwise perform a separate local review and identify it as self-review; write the decision JSON inside `Docs/Work/<TaskId>/`.
 - Release is a separate T4 gate and is never implied by implementation completion.
 - Infrastructure, hosting, deployment and production operations belong to the user. Keep them out of plans, queues and completion criteria unless explicitly requested; record runtime requirements needed for handoff.
 - Sequential work uses the existing checkout. Do not create a branch or worktree, or require a merge, only because the pipeline is running. A merge-readiness check performs no Git merge.
-- Stop on a failed required gate or Git command: keep the error and resolve it before unrelated work. Never hide a nonzero exit, discard changes or start a replacement queue to get around a failure.
+- A failed required gate or Git command blocks dependent progress, not authorized repair: keep the error, diagnose and resolve it in the same request before unrelated work. Never hide a nonzero exit, discard changes or start a replacement queue to get around a failure.
 - If a command reports a held lock, run `python -m web_pipeline locks`. A lock whose process is gone is reclaimed automatically; never delete a lock whose process is alive.
+
+Read [CONTINUATION.md](Docs/Runbooks/CONTINUATION.md) before treating a diagnostic as a user stop. In `time_budget_mode: warn`, elapsed-time warnings do not require renewal. Hard retry/step limits remain.
+
+## Product work first
+
+Follow [PRODUCT_FIRST.md](Docs/Runbooks/PRODUCT_FIRST.md): reuse existing documents, checks and layout; configure actual domains; implement one real requested feature as soon as its entry gates pass. Do not invent a pipeline demonstration feature or split a small connected feature into multiple tasks just because it crosses layers.
 
 ## Planning documents
 
