@@ -1,0 +1,74 @@
+name: strict-project-policy
+on:
+  pull_request:
+  workflow_dispatch:
+    inputs:
+      base_ref: {description: 'Trusted comparison base ref', required: true, type: string}
+      evidence_run_id: {description: 'Optional trusted workflow run containing pipeline-evidence', required: false, type: string}
+  workflow_call:
+    inputs:
+      base_ref: {required: true, type: string}
+      evidence_run_id: {required: false, type: string, default: ''}
+    secrets:
+      WEB_PIPELINE_TRUST_JSON: {required: false}
+permissions: {contents: read, actions: read}
+jobs:
+  policy:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+          ref: ${{ github.event.pull_request.head.sha || github.sha }}
+      - uses: actions/setup-python@v5
+        with: {python-version: '3.11'}
+      - name: Install pipeline dependencies (adopted project or kit)
+        shell: bash
+        run: |
+          if [ -f requirements-pipeline.txt ]; then
+            python -m pip install -r requirements-pipeline.txt
+          else
+            python -m pip install -r requirements.txt
+          fi
+      - name: Resolve gate mode and explicit evidence source
+        id: context
+        env:
+          BASE_REF: ${{ github.event.pull_request.base.sha || inputs.base_ref }}
+          EVIDENCE_RUN_ID: ${{ inputs.evidence_run_id }}
+          FORCE_PROJECT: ${{ github.event_name != 'pull_request' }}
+        run: |
+          if [ "$FORCE_PROJECT" = "true" ]; then
+            python Scripts/ci-context.py --base-ref "$BASE_REF" --evidence-run-id "$EVIDENCE_RUN_ID" --force-project
+          else
+            python Scripts/ci-context.py --base-ref "$BASE_REF" --evidence-run-id "$EVIDENCE_RUN_ID"
+          fi
+      - name: Download evidence produced by an explicit workflow run
+        if: steps.context.outputs.project == 'true'
+        uses: actions/download-artifact@v4
+        with:
+          name: pipeline-evidence
+          path: ${{ steps.context.outputs.report_root }}
+          run-id: ${{ steps.context.outputs.evidence_run_id }}
+          github-token: ${{ github.token }}
+      - name: Materialize external trust for this job
+        if: steps.context.outputs.project == 'true'
+        shell: bash
+        env: {TRUST_JSON: '${{ secrets.WEB_PIPELINE_TRUST_JSON }}'}
+        run: |
+          if [ -n "$TRUST_JSON" ]; then
+            printf "%s" "$TRUST_JSON" > "$RUNNER_TEMP/web-pipeline-trust.json"
+            printf 'WEB_PIPELINE_TRUST=%s\n' "$RUNNER_TEMP/web-pipeline-trust.json" >> "$GITHUB_ENV"
+          fi
+      - name: Require every active task ready for merge
+        if: steps.context.outputs.project == 'true'
+        env: {BASE_REF: '${{ steps.context.outputs.base_ref }}'}
+        run: python -m web_pipeline --root . validate --gate merge --base-ref "$BASE_REF"
+      - name: Validate distributable kit without claiming project readiness
+        if: steps.context.outputs.project == 'false'
+        run: python -m web_pipeline --root . validate --kit
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: pipeline-evidence
+          path: ${{ steps.context.outputs.report_root || 'Reports/Pipeline' }}/
+          if-no-files-found: warn

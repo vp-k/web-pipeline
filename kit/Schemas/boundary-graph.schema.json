@@ -1,0 +1,20 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "type": "object", "additionalProperties": false,
+  "required": ["schema_version", "files", "edges", "unresolved"],
+  "properties": {
+    "schema_version": {"const": "1.0"},
+    "files": {"type": "object", "minProperties": 1, "additionalProperties": {"type": "string", "pattern": "^[a-f0-9]{64}$"}},
+    "unresolved": {"type": "array", "items": {"type": "string", "minLength": 1}},
+    "edges": {"type": "array", "items": {
+      "type": "object", "additionalProperties": false,
+      "required": ["from"],
+      "properties": {
+        "from": {"type": "string", "minLength": 1},
+        "to": {"type": "string", "minLength": 1},
+        "external": {"type": "string", "minLength": 1}
+      },
+      "oneOf": [{"required": ["to"]}, {"required": ["external"]}]
+    }}
+  }
+}

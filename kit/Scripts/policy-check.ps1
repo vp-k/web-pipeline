@@ -1,0 +1,2 @@
+[CmdletBinding()] param([string]$RootPath='.',[string]$TaskId,[string]$BaseRef,[string]$TrustPath,[switch]$Kit,[ValidateSet('progress','merge')][string]$Gate='progress')
+$ErrorActionPreference='Stop';Import-Module (Join-Path $PSScriptRoot 'Pipeline.Common.psm1') -Force;$a=@('validate','--gate',$Gate);if($Kit){$a+='--kit'};if($TaskId){$a+=@('--task',$TaskId)};if($BaseRef){$a+=@('--base-ref',$BaseRef)};if($TrustPath){$a+=@('--trust',$TrustPath)};Invoke-WebPipeline $RootPath $a

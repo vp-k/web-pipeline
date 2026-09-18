@@ -1,0 +1,40 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "type": "object", "additionalProperties": false,
+  "required": ["source_patterns", "components", "contracts", "dependency_check", "server_only_packages"],
+  "properties": {
+    "source_patterns": {"type": "array", "minItems": 1, "uniqueItems": true, "items": {"type": "string", "minLength": 1}},
+    "dependency_check": {"type": "string", "minLength": 1},
+    "server_only_packages": {"type": "array", "uniqueItems": true, "items": {"type": "string", "minLength": 1}},
+    "components": {"type": "array", "minItems": 1, "items": {
+      "type": "object", "additionalProperties": false,
+      "required": ["id", "runtime", "paths", "depends_on"],
+      "properties": {
+        "id": {"type": "string", "pattern": "^[a-z][a-z0-9_-]*$"},
+        "runtime": {"enum": ["browser", "server", "shared"]},
+        "paths": {"type": "array", "minItems": 1, "uniqueItems": true, "items": {"type": "string", "minLength": 1}},
+        "depends_on": {"type": "array", "uniqueItems": true, "items": {"type": "string", "minLength": 1}}
+      }
+    }},
+    "contracts": {"type": "array", "items": {
+      "type": "object", "additionalProperties": false,
+      "required": ["id", "paths", "provider", "consumers", "checks"],
+      "properties": {
+        "id": {"type": "string", "pattern": "^[a-z][a-z0-9_-]*$"},
+        "paths": {"type": "array", "minItems": 1, "uniqueItems": true, "items": {"type": "string", "minLength": 1}},
+        "provider": {"type": "string", "minLength": 1},
+        "consumers": {"type": "array", "minItems": 1, "uniqueItems": true, "items": {"type": "string", "minLength": 1}},
+        "checks": {
+          "type": "object", "additionalProperties": false,
+          "required": ["provider", "consumer", "compatibility", "integration"],
+          "properties": {
+            "provider": {"type": "string", "minLength": 1},
+            "consumer": {"type": "string", "minLength": 1},
+            "compatibility": {"type": "string", "minLength": 1},
+            "integration": {"type": "string", "minLength": 1}
+          }
+        }
+      }
+    }}
+  }
+}

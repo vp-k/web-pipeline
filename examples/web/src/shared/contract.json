@@ -1,0 +1,6 @@
+{
+  "version": 1,
+  "collection": "notes",
+  "required": {"id":"integer", "title":"string"},
+  "statuses": {"list":200, "create":201, "unauthenticated":401, "forbidden":403, "invalid":400}
+}

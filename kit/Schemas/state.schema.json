@@ -1,0 +1,280 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "state",
+  "type": "object",
+  "additionalProperties": false,
+  "properties": {
+    "planning_version": {"const": 1},
+    "schema_version": {
+      "const": "2.0"
+    },
+    "task_id": {
+      "type": "string",
+      "pattern": "^[A-Za-z0-9][A-Za-z0-9._-]{1,63}$"
+    },
+    "title": {
+      "type": "string",
+      "minLength": 1
+    },
+    "status": {
+      "enum": [
+        "DRAFT",
+        "READY",
+        "IN_PROGRESS",
+        "VERIFYING",
+        "REVIEW",
+        "DONE",
+        "BLOCKED"
+      ]
+    },
+    "revision": {
+      "type": "integer",
+      "minimum": 1
+    },
+    "requested_tier": {
+      "enum": [
+        "T0",
+        "T1",
+        "T2",
+        "T3",
+        "T4"
+      ]
+    },
+    "risk_tier": {
+      "enum": [
+        "T0",
+        "T1",
+        "T2",
+        "T3",
+        "T4"
+      ]
+    },
+    "change_domains": {
+      "type": "array",
+      "items": {
+        "enum": [
+          "frontend",
+          "backend",
+          "database",
+          "api",
+          "authentication",
+          "authorization",
+          "security",
+          "privacy",
+          "payment",
+          "external_integration",
+          "infrastructure",
+          "deployment"
+        ]
+      },
+      "minItems": 1,
+      "uniqueItems": true
+    },
+    "protected_changes": {
+      "type": "array",
+      "items": {
+        "type": "string",
+        "minLength": 1
+      },
+      "uniqueItems": true
+    },
+    "migration_class": {
+      "enum": [
+        "none",
+        "reversible",
+        "backward_compatible",
+        "destructive",
+        "irreversible"
+      ]
+    },
+    "base_ref": {
+      "anyOf": [
+        {
+          "type": "string",
+          "minLength": 1
+        },
+        {
+          "type": "null"
+        }
+      ]
+    },
+    "implementer": {
+      "type": ["string", "null"],
+      "minLength": 1
+    },
+    "fingerprint": {
+      "type": ["string", "null"],
+      "pattern": "^[a-f0-9]{64}$"
+    },
+    "approvals": {
+      "type": "array",
+      "items": {
+        "type": "string",
+        "minLength": 1
+      },
+      "uniqueItems": true
+    },
+    "decision_records": {
+      "type": "array",
+      "items": {
+        "type": "string",
+        "minLength": 1
+      },
+      "uniqueItems": true
+    },
+    "exceptions": {
+      "type": "array",
+      "items": {
+        "type": "string",
+        "minLength": 1
+      },
+      "uniqueItems": true
+    },
+    "baseline_run": {
+      "anyOf": [
+        {
+          "type": "string",
+          "pattern": "^[A-Za-z0-9][A-Za-z0-9._-]{1,63}$"
+        },
+        {
+          "type": "null"
+        }
+      ]
+    },
+    "full_run": {
+      "anyOf": [
+        {
+          "type": "string",
+          "pattern": "^[A-Za-z0-9][A-Za-z0-9._-]{1,63}$"
+        },
+        {
+          "type": "null"
+        }
+      ]
+    },
+    "release_run": {
+      "anyOf": [
+        {
+          "type": "string",
+          "pattern": "^[A-Za-z0-9][A-Za-z0-9._-]{1,63}$"
+        },
+        {
+          "type": "null"
+        }
+      ]
+    },
+    "iteration": {
+      "type": "object",
+      "additionalProperties": false,
+      "dependentRequired": {
+        "budget_version": ["failed_attempts", "active_seconds", "renewals", "pending_run"],
+        "failed_attempts": ["budget_version"], "active_seconds": ["budget_version"],
+        "renewals": ["budget_version"], "pending_run": ["budget_version"]
+      },
+      "properties": {
+        "budget_version": {"const": 1},
+        "failed_attempts": {"type": "integer", "minimum": 0},
+        "active_seconds": {"type": "number", "minimum": 0},
+        "renewals": {"type": "array", "items": {"type": "object"}},
+        "pending_run": {"anyOf": [{"type": "null"}, {
+          "type": "object", "additionalProperties": false,
+          "required": ["run_id", "started_utc"],
+          "properties": {
+            "run_id": {"type": "string", "pattern": "^[A-Za-z0-9][A-Za-z0-9._-]{1,63}$"},
+            "started_utc": {"type": "string", "format": "date-time"}
+          }
+        }]},
+        "attempts": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "same_failure": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "external_retries": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "started_utc": {
+          "anyOf": [
+            {
+              "type": "string",
+              "format": "date-time"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "last_failure": {
+          "anyOf": [
+            {
+              "type": "string",
+              "pattern": "^[a-f0-9]{64}$"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        }
+      },
+      "required": [
+        "attempts",
+        "same_failure",
+        "external_retries",
+        "started_utc",
+        "last_failure"
+      ]
+    },
+    "release_status": {
+      "enum": [
+        "NOT_READY",
+        "READY",
+        "VERIFIED"
+      ]
+    },
+    "blockers": {
+      "type": "array",
+      "items": {
+        "type": "string",
+        "minLength": 1
+      },
+      "uniqueItems": true
+    },
+    "created_utc": {
+      "type": "string",
+      "format": "date-time"
+    },
+    "updated_utc": {
+      "type": "string",
+      "format": "date-time"
+    }
+  },
+  "required": [
+    "schema_version",
+    "task_id",
+    "title",
+    "status",
+    "revision",
+    "requested_tier",
+    "risk_tier",
+    "change_domains",
+    "protected_changes",
+    "migration_class",
+    "base_ref",
+    "implementer",
+    "fingerprint",
+    "approvals",
+    "decision_records",
+    "exceptions",
+    "baseline_run",
+    "full_run",
+    "release_run",
+    "iteration",
+    "release_status",
+    "blockers",
+    "created_utc",
+    "updated_utc"
+  ]
+}

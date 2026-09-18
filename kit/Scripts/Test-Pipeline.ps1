@@ -1,0 +1,3 @@
+[CmdletBinding()] param([string]$RootPath='.',[string]$TaskId,[string]$BaseRef,[string]$TrustPath,[switch]$Kit)
+$ErrorActionPreference='Stop';$root=(Resolve-Path -LiteralPath $RootPath).Path;$python=if($env:PYTHON){$env:PYTHON}else{'python'};Push-Location $root
+try{& $python -m unittest discover -s tests -v;if($LASTEXITCODE -ne 0){throw "unit tests failed with exit code $LASTEXITCODE"};$a=@('-m','web_pipeline','--root',$root,'validate');if($Kit){$a+='--kit'};if($TaskId){$a+=@('--task',$TaskId)};if($BaseRef){$a+=@('--base-ref',$BaseRef)};if($TrustPath){$a+=@('--trust',$TrustPath)};& $python @a;if($LASTEXITCODE -ne 0){throw "pipeline validation failed with exit code $LASTEXITCODE"}}finally{Pop-Location}

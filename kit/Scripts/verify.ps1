@@ -1,0 +1,2 @@
+[CmdletBinding()] param([Parameter(Mandatory=$true)][ValidateSet('Policy','Baseline','Fast','Task','Phase','Full','Release')][string]$Profile,[Parameter(Mandatory=$true)][string]$TaskId,[string]$RunId,[string]$TrustPath,[string]$RootPath='.')
+& (Join-Path $PSScriptRoot 'Invoke-Pipeline.ps1') -Profile $Profile -TaskId $TaskId -RunId $RunId -TrustPath $TrustPath -RootPath $RootPath;exit $LASTEXITCODE

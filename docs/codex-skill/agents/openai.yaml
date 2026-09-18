@@ -1,0 +1,4 @@
+interface:
+  display_name: "Web Development Pipeline"
+  short_description: "웹 개발 작업의 위험 분류·실행 검증·증거·승인 게이트 관리"
+  default_prompt: "Use $web-development-pipeline to inspect this project's pipeline and identify the next valid step."

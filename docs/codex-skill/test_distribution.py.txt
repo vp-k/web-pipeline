@@ -1,0 +1,143 @@
+"""Exercise built, relocated packages instead of matching instruction wording."""
+import importlib.util
+import json
+from pathlib import Path
+import shutil
+import subprocess
+import sys
+import tempfile
+import unittest
+import zipfile
+
+ROOT = Path(__file__).resolve().parents[2]
+spec = importlib.util.spec_from_file_location('package_builder', ROOT / 'Packaging/build.py')
+builder = importlib.util.module_from_spec(spec)
+spec.loader.exec_module(builder)
+NAME = 'web-development-pipeline'
+
+
+class DistributionTests(unittest.TestCase):
+    @classmethod
+    def setUpClass(cls):
+        cls.temp = tempfile.TemporaryDirectory(prefix='distribution-tests-')
+        cls.addClassCleanup(cls.temp.cleanup)
+        cls.sandbox = Path(cls.temp.name)
+        cls.output = cls.sandbox / 'build'
+        builder.build(cls.output)
+
+    def setUp(self):
+        self.temp_case = tempfile.TemporaryDirectory(dir=self.sandbox, prefix='case-')
+        self.addCleanup(self.temp_case.cleanup)
+        self.work = Path(self.temp_case.name)
+        self.skill = self.work / NAME
+        shutil.copytree(self.output / NAME / 'skills' / NAME, self.skill)
+        self.launcher = self.skill / 'scripts/pipeline.py'
+
+    def run_cli(self, *args):
+        return subprocess.run([sys.executable, '-B', str(self.launcher), *map(str, args)],
+                              cwd=self.work, capture_output=True, text=True, timeout=45)
+
+    def test_relocated_skill_is_self_contained_and_doctor_read_only(self):
+        before = builder.file_hashes(self.skill)
+        result = self.run_cli('doctor')
+        self.assertEqual(0, result.returncode, result.stdout + result.stderr)
+        self.assertEqual('PASS', json.loads(result.stdout)['status'])
+        self.assertEqual(before, builder.file_hashes(self.skill))
+
+    def test_adoption_then_strict_not_ready_and_draft_no_fabricated_done(self):
+        target = self.work / 'new project'
+        result = self.run_cli('adopt', '--target', target)
+        self.assertEqual(0, result.returncode, result.stdout + result.stderr)
+        config = json.loads((target / 'pipeline.config.yaml').read_text())
+        self.assertEqual('project', config['project']['mode'])
+        self.assertFalse(config['project']['ready'])
+        self.assertNotEqual(0, self.run_cli('project', '--root', target, 'validate', '--gate', 'merge').returncode)
+        result = self.run_cli('project', '--root', target, 'new', '--task', 'PKG-1', '--title', 'Packaging test', '--domains', 'backend')
+        self.assertEqual(0, result.returncode, result.stdout + result.stderr)
+        self.assertEqual('DRAFT', json.loads(result.stdout)['status'])
+        result = self.run_cli('project', '--root', target, 'transition', '--task', 'PKG-1', '--status', 'DONE')
+        self.assertNotEqual(0, result.returncode)
+
+    def test_adoption_conflict_preserves_existing_files_without_partial_install(self):
+        target = self.work / 'existing'
+        target.mkdir()
+        (target / 'AGENTS.md').write_text('User-owned instructions', encoding='utf-8')
+        before = builder.file_hashes(target)
+        result = self.run_cli('adopt', '--target', target)
+        self.assertNotEqual(0, result.returncode)
+        self.assertEqual(before, builder.file_hashes(target))
+
+    def test_tampered_bundle_blocks_adoption_without_target_writes(self):
+        (self.skill / 'assets/pipeline/web_pipeline/__init__.py').write_text('tampered', encoding='utf-8')
+        target = self.work / 'target'
+        self.assertNotEqual(0, self.run_cli('doctor').returncode)
+        self.assertNotEqual(0, self.run_cli('adopt', '--target', target).returncode)
+        self.assertFalse(target.exists())
+
+    def test_wrapper_preview_inspect_upgrade_are_explicit_and_relocatable(self):
+        target = self.work / 'maintenance project'
+        result = self.run_cli('adopt','--target',target,'--preview')
+        self.assertEqual(0,result.returncode,result.stderr)
+        self.assertFalse(target.exists())
+        self.assertEqual(0,self.run_cli('adopt','--target',target).returncode)
+        before = builder.file_hashes(target)
+        inspected = self.run_cli('inspect','--target',target)
+        self.assertEqual(0,inspected.returncode,inspected.stderr)
+        self.assertEqual('NOT_CONFIGURED',json.loads(inspected.stdout)['boundaries'])
+        preview = self.run_cli('upgrade','--target',target)
+        self.assertEqual(0,preview.returncode,preview.stderr)
+        self.assertEqual('PREVIEW',json.loads(preview.stdout)['mode'])
+        self.assertEqual(before,builder.file_hashes(target))
+        self.assertNotEqual(0,self.run_cli('project','--root',target,'upgrade','--target',target).returncode)
+
+    def test_project_uses_local_engine_and_never_falls_back(self):
+        target = self.work / 'project'
+        target.mkdir()
+        self.assertNotEqual(0, self.run_cli('project', '--root', target, 'validate').returncode)
+        (target / 'web_pipeline').mkdir()
+        (target / 'pipeline.config.yaml').write_text('{}')
+        (target / 'web_pipeline/__init__.py').write_text('')
+        (target / 'web_pipeline/cli.py').write_text('')
+        (target / 'web_pipeline/__main__.py').write_text('print("LOCAL_ENGINE_SENTINEL")\nraise SystemExit(23)')
+        result = self.run_cli('project', '--root', target, 'validate')
+        self.assertEqual(23, result.returncode)
+        self.assertIn('LOCAL_ENGINE_SENTINEL', result.stdout)
+        self.assertNotEqual(0, self.run_cli('project', '--root', self.skill / 'assets/pipeline', 'validate', '--kit').returncode)
+
+    def test_archives_are_reproducible_and_do_not_ship_task_evidence(self):
+        second = self.work / 'second'
+        builder.build(second)
+        for suffix in ('-plugin.zip', '-skill.zip'):
+            name = NAME + suffix
+            self.assertEqual((self.output / name).read_bytes(), (second / name).read_bytes())
+            with zipfile.ZipFile(second / name) as archive:
+                names = archive.namelist()
+                self.assertFalse(any('/Docs/Work/' in p or '/Docs/Archive/' in p for p in names))
+                reports = [p for p in names if '/Reports/' in p]
+                self.assertEqual(1, len(reports))
+                self.assertTrue(reports[0].endswith('/Reports/Pipeline/.gitkeep'))
+                launcher = next(p for p in names if p.endswith('/scripts/pipeline.py'))
+                self.assertNotIn(b'\r\n', archive.read(launcher))
+        before = builder.file_hashes(second)
+        with self.assertRaisesRegex(ValueError, 'already exists'):
+            builder.build(second)
+        self.assertEqual(before, builder.file_hashes(second))
+
+    def test_text_normalization_preserves_binary_bytes_and_is_idempotent(self):
+        inputs = self.work / 'line-endings'
+        inputs.mkdir()
+        text = inputs / 'check.py'
+        binary = inputs / 'image.png'
+        text.write_bytes(b'assert 1 + 1 == 2\r\nprint("ok")\r\n')
+        binary.write_bytes(b'\x89PNG\r\n\x1a\n\xff\r\n')
+        image_bytes = binary.read_bytes()
+        builder.normalize_text(inputs)
+        self.assertEqual(b'assert 1 + 1 == 2\nprint("ok")\n', text.read_bytes())
+        self.assertEqual(image_bytes, binary.read_bytes())
+        before = builder.file_hashes(inputs)
+        builder.normalize_text(inputs)
+        self.assertEqual(before, builder.file_hashes(inputs))
+
+
+if __name__ == '__main__':
+    unittest.main()

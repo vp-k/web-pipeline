@@ -1,0 +1,12 @@
+{
+  "id": "ADR-REPLACE_ME",
+  "title": "Replace with the proposed decision title",
+  "status": "PROPOSED",
+  "task_id": "REPLACE-TASK-ID",
+  "revision": 1,
+  "scope": [],
+  "context": "Replace with the problem and constraints",
+  "decision": "Replace with the proposed approach and alternatives",
+  "risks": "Replace with concrete failure modes and mitigations",
+  "recovery": "Replace with the rollback or restore procedure"
+}

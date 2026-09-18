@@ -1,0 +1,16 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "type": "object", "additionalProperties": false,
+  "required": ["task_id", "revision", "fingerprint", "tree_digest", "run_id", "run_digest", "kind", "decision", "recorded_utc"],
+  "properties": {
+    "task_id": {"type": "string", "minLength": 2},
+    "revision": {"type": "integer", "minimum": 1},
+    "fingerprint": {"type": "string", "pattern": "^[a-f0-9]{64}$"},
+    "tree_digest": {"type": "string", "pattern": "^[a-f0-9]{64}$"},
+    "run_id": {"type": "string", "minLength": 1},
+    "run_digest": {"type": "string", "pattern": "^[a-f0-9]{64}$"},
+    "kind": {"const": "self_review"},
+    "decision": {"type": "object"},
+    "recorded_utc": {"type": "string", "format": "date-time"}
+  }
+}

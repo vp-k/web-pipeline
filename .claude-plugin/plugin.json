@@ -1,0 +1,21 @@
+{
+  "name": "web-pipeline",
+  "version": "2.11.0",
+  "description": "Risk-tiered web development pipeline for Claude Code: tracked tasks, real verification evidence, approval gates and a durable work queue, run by a project-local Python engine.",
+  "author": {
+    "name": "vp-k"
+  },
+  "repository": "https://github.com/vp-k/web-pipeline",
+  "keywords": [
+    "web",
+    "pipeline",
+    "verification",
+    "governance"
+  ],
+  "commands": [
+    "./commands"
+  ],
+  "skills": [
+    "./skills"
+  ]
+}

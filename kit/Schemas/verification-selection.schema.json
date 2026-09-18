@@ -1,0 +1,113 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "verification-selection",
+  "type": "object",
+  "additionalProperties": false,
+  "properties": {
+    "profile": {
+      "enum": [
+        "Policy",
+        "Baseline",
+        "Fast",
+        "Task",
+        "Phase",
+        "Full",
+        "Release"
+      ]
+    },
+    "level": {
+      "enum": [
+        "task",
+        "phase",
+        "project"
+      ]
+    },
+    "components": {
+      "type": "array",
+      "items": {
+        "type": "string",
+        "minLength": 1
+      },
+      "uniqueItems": true
+    },
+    "domains": {
+      "type": "array",
+      "items": {
+        "type": "string",
+        "minLength": 1
+      },
+      "uniqueItems": true
+    },
+    "changed_paths": {
+      "type": "array",
+      "items": {
+        "type": "string",
+        "minLength": 1
+      },
+      "uniqueItems": true
+    },
+    "checks": {
+      "type": "array",
+      "items": {
+        "type": "string",
+        "minLength": 1
+      },
+      "uniqueItems": true
+    },
+    "reasons": {
+      "type": "array",
+      "items": {
+        "type": "string",
+        "minLength": 1
+      },
+      "uniqueItems": true,
+      "minItems": 1
+    },
+    "members": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {
+          "task_id": {
+            "type": "string",
+            "minLength": 2
+          },
+          "revision": {
+            "type": "integer",
+            "minimum": 1
+          },
+          "fingerprint": {
+            "type": "string",
+            "pattern": "^[a-f0-9]{64}$"
+          },
+          "run_id": {
+            "type": "string",
+            "minLength": 2
+          },
+          "run_digest": {
+            "type": "string",
+            "pattern": "^[a-f0-9]{64}$"
+          }
+        },
+        "required": [
+          "task_id",
+          "revision",
+          "fingerprint",
+          "run_id",
+          "run_digest"
+        ]
+      }
+    }
+  },
+  "required": [
+    "profile",
+    "level",
+    "components",
+    "domains",
+    "changed_paths",
+    "checks",
+    "reasons",
+    "members"
+  ]
+}

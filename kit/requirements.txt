@@ -1,0 +1,3 @@
+jsonschema>=4.23,<5
+cryptography>=44,<49
+Pillow>=11,<13

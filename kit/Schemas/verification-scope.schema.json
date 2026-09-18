@@ -1,0 +1,60 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "verification-scope",
+  "type": "object",
+  "additionalProperties": false,
+  "properties": {
+    "level": {
+      "enum": [
+        "task",
+        "phase"
+      ]
+    },
+    "components": {
+      "type": "array",
+      "items": {
+        "type": "string",
+        "minLength": 1
+      },
+      "uniqueItems": true
+    },
+    "members": {
+      "type": "array",
+      "items": {
+        "type": "string",
+        "pattern": "^[A-Za-z0-9][A-Za-z0-9._-]{1,63}$"
+      },
+      "uniqueItems": true
+    }
+  },
+  "required": [
+    "level",
+    "components",
+    "members"
+  ],
+  "allOf": [
+    {
+      "if": {
+        "properties": {
+          "level": {
+            "const": "phase"
+          }
+        }
+      },
+      "then": {
+        "properties": {
+          "members": {
+            "minItems": 1
+          }
+        }
+      },
+      "else": {
+        "properties": {
+          "members": {
+            "maxItems": 0
+          }
+        }
+      }
+    }
+  ]
+}

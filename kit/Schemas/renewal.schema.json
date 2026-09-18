@@ -1,0 +1,16 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "type": "object", "additionalProperties": false,
+  "required": ["id", "at", "reason", "extra_minutes", "extra_attempts"],
+  "properties": {
+    "id": {"type": "string", "pattern": "^[a-f0-9]{32}$"},
+    "at": {"type": "string", "format": "date-time"},
+    "reason": {"type": "string", "pattern": "\\S"},
+    "extra_minutes": {"type": "integer", "minimum": 0, "maximum": 1440},
+    "extra_attempts": {"type": "integer", "minimum": 0, "maximum": 1000},
+    "migration": {"type": ["object", "null"]},
+    "settlement": {"type": ["object", "null"]},
+    "usage_before": {"type": "object"}
+  },
+  "anyOf": [{"properties": {"extra_minutes": {"minimum": 1}}}, {"properties": {"extra_attempts": {"minimum": 1}}}]
+}

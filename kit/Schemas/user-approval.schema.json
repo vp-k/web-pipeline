@@ -1,0 +1,52 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "user-approval",
+  "type": "object", "additionalProperties": false,
+  "required": ["kind", "assurance", "recorded_utc", "payload"],
+  "properties": {
+    "kind": {"const": "user_approval"},
+    "assurance": {"const": "local_transcription"},
+    "recorded_utc": {"type": "string", "format": "date-time"},
+    "payload": {
+      "type": "object", "additionalProperties": false,
+      "required": ["task_id", "revision", "fingerprint", "phase", "roles", "scope", "conditions", "outcome", "user_message", "presented_scope", "source_reference"],
+      "properties": {
+        "task_id": {"type": "string", "pattern": "^[A-Za-z0-9][A-Za-z0-9._-]{1,63}$"},
+        "revision": {"type": "integer", "minimum": 1},
+        "fingerprint": {"type": "string", "pattern": "^[a-f0-9]{64}$"},
+        "phase": {"enum": ["design", "review", "release", "exception"]},
+        "roles": {"type": "array", "minItems": 1, "uniqueItems": true, "items": {"type": "string", "minLength": 1}},
+        "scope": {"type": "array", "uniqueItems": true, "items": {"type": "string", "minLength": 1}},
+        "outcome": {"const": "APPROVED"},
+        "user_message": {"type": "string", "pattern": "\\S"},
+        "presented_scope": {"type": "string", "pattern": "\\S"},
+        "source_reference": {"type": "string", "pattern": "\\S"},
+        "tree_digest": {"type": "string", "pattern": "^[a-f0-9]{64}$"},
+        "run_id": {"type": "string", "pattern": "^[A-Za-z0-9][A-Za-z0-9._-]{1,63}$"},
+        "run_digest": {"type": "string", "pattern": "^[a-f0-9]{64}$"},
+        "check_id": {"type": "string", "pattern": "\\S"},
+        "reason": {"type": "string", "pattern": "\\S"},
+        "conditions": {
+          "type": "array", "items": {
+            "type": "object", "additionalProperties": false,
+            "required": ["description", "status", "evidence", "sha256"],
+            "properties": {
+              "description": {"type": "string", "pattern": "\\S"},
+              "status": {"const": "PASS"},
+              "evidence": {"type": "string", "pattern": "\\S"},
+              "sha256": {"type": "string", "pattern": "^[a-f0-9]{64}$"}
+            }
+          }
+        }
+      },
+      "allOf": [
+        {"if": {"properties": {"phase": {"enum": ["review", "release"]}}},
+         "then": {"required": ["tree_digest", "run_id", "run_digest"]},
+         "else": {"not": {"anyOf": [{"required": ["tree_digest"]}, {"required": ["run_id"]}, {"required": ["run_digest"]}]}}},
+        {"if": {"properties": {"phase": {"const": "exception"}}},
+         "then": {"required": ["check_id", "reason"]},
+         "else": {"not": {"anyOf": [{"required": ["check_id"]}, {"required": ["reason"]}]}}}
+      ]
+    }
+  }
+}

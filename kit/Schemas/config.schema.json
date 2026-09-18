@@ -1,0 +1,551 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "config",
+  "type": "object",
+  "additionalProperties": false,
+  "properties": {
+    "boundaries": {"type": "object"},
+    "approval_policy": {"enum": ["standard", "strict"]},
+    "schema_version": {
+      "const": "2.0"
+    },
+    "project": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "generated_paths": {
+          "type": "array",
+          "uniqueItems": true,
+          "items": { "type": "string", "minLength": 1 }
+        },
+        "name": {
+          "type": "string",
+          "minLength": 1
+        },
+        "mode": {
+          "enum": [
+            "kit",
+            "project"
+          ]
+        },
+        "respect_gitignore": {
+          "type": "boolean",
+          "description": "Leave Git-ignored untracked paths out of the source tree digest."
+        },
+        "ready": {
+          "type": "boolean"
+        },
+        "report_root": {
+          "type": "string",
+          "minLength": 1
+        },
+        "supported_domains": {
+          "type": "array",
+          "items": {
+            "enum": [
+              "frontend",
+              "backend",
+              "database",
+              "api",
+              "authentication",
+              "authorization",
+              "security",
+              "privacy",
+              "payment",
+              "external_integration",
+              "infrastructure",
+              "deployment"
+            ]
+          },
+          "minItems": 1,
+          "uniqueItems": true
+        }
+      },
+      "required": [
+        "name",
+        "mode",
+        "ready",
+        "report_root",
+        "supported_domains"
+      ]
+    },
+    "sources": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "product_spec": {
+          "type": "string",
+          "minLength": 1
+        },
+        "feature_spec": {
+          "type": "string",
+          "minLength": 1
+        },
+        "api_contract": {
+          "type": "string",
+          "minLength": 1
+        },
+        "data_contract": {
+          "type": "string",
+          "minLength": 1
+        },
+        "security_policy": {
+          "type": "string",
+          "minLength": 1
+        },
+        "architecture": {
+          "type": "string",
+          "minLength": 1
+        }
+      },
+      "required": [
+        "product_spec",
+        "feature_spec",
+        "api_contract",
+        "data_contract",
+        "security_policy",
+        "architecture"
+      ]
+    },
+    "risk": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "domain_floor": {
+          "type": "object",
+          "additionalProperties": {
+            "enum": [
+              "T0",
+              "T1",
+              "T2",
+              "T3",
+              "T4"
+            ]
+          }
+        },
+        "domain_protected_map": {
+          "type": "object",
+          "additionalProperties": {
+            "type": "array",
+            "items": {
+              "type": "string",
+              "minLength": 1
+            },
+            "uniqueItems": true
+          }
+        },
+        "protected_rules": {
+          "type": "object",
+          "minProperties": 20,
+          "additionalProperties": {
+            "type": "object",
+            "additionalProperties": false,
+            "properties": {
+              "tier": {
+                "enum": [
+                  "T0",
+                  "T1",
+                  "T2",
+                  "T3",
+                  "T4"
+                ]
+              },
+              "domains": {
+                "type": "array",
+                "items": {
+                  "enum": [
+                    "frontend",
+                    "backend",
+                    "database",
+                    "api",
+                    "authentication",
+                    "authorization",
+                    "security",
+                    "privacy",
+                    "payment",
+                    "external_integration",
+                    "infrastructure",
+                    "deployment"
+                  ]
+                },
+                "minItems": 1,
+                "uniqueItems": true
+              },
+              "roles": {
+                "type": "array",
+                "items": {
+                  "type": "string",
+                  "minLength": 1
+                },
+                "uniqueItems": true,
+                "minItems": 1
+              },
+              "checks": {
+                "type": "object",
+                "additionalProperties": false,
+                "properties": {
+                  "Policy": {
+                    "type": "array",
+                    "items": {
+                      "type": "string",
+                      "minLength": 1
+                    },
+                    "uniqueItems": true
+                  },
+                  "Baseline": {
+                    "type": "array",
+                    "items": {
+                      "type": "string",
+                      "minLength": 1
+                    },
+                    "uniqueItems": true
+                  },
+                  "Fast": {
+                    "type": "array",
+                    "items": {
+                      "type": "string",
+                      "minLength": 1
+                    },
+                    "uniqueItems": true
+                  },
+                  "Full": {
+                    "type": "array",
+                    "items": {
+                      "type": "string",
+                      "minLength": 1
+                    },
+                    "uniqueItems": true
+                  },
+                  "Release": {
+                    "type": "array",
+                    "items": {
+                      "type": "string",
+                      "minLength": 1
+                    },
+                    "uniqueItems": true
+                  }
+                }
+              }
+            },
+            "required": [
+              "tier",
+              "domains",
+              "roles",
+              "checks"
+            ]
+          }
+        },
+        "path_rules": {
+          "type": "array",
+          "minItems": 1,
+          "items": {
+            "type": "object",
+            "additionalProperties": false,
+            "properties": {
+              "pattern": {
+                "type": "string",
+                "minLength": 1
+              },
+              "domains": {
+                "type": "array",
+                "items": {
+                  "enum": [
+                    "frontend",
+                    "backend",
+                    "database",
+                    "api",
+                    "authentication",
+                    "authorization",
+                    "security",
+                    "privacy",
+                    "payment",
+                    "external_integration",
+                    "infrastructure",
+                    "deployment"
+                  ]
+                },
+                "minItems": 0,
+                "uniqueItems": true
+              },
+              "protected_changes": {
+                "type": "array",
+                "items": {
+                  "type": "string",
+                  "minLength": 1
+                },
+                "uniqueItems": true
+              },
+              "tier": {
+                "enum": [
+                  "T0",
+                  "T1",
+                  "T2",
+                  "T3",
+                  "T4"
+                ]
+              }
+            },
+            "required": [
+              "pattern",
+              "domains",
+              "protected_changes",
+              "tier"
+            ]
+          }
+        }
+      },
+      "required": [
+        "domain_floor",
+        "domain_protected_map",
+        "protected_rules",
+        "path_rules"
+      ]
+    },
+    "verification": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "scopes": {"type": "object"},
+        "requirements": {
+          "type": "object",
+          "additionalProperties": {
+            "type": "object",
+            "additionalProperties": false,
+            "properties": {
+              "Policy": {
+                "type": "array",
+                "items": {
+                  "type": "string",
+                  "minLength": 1
+                },
+                "uniqueItems": true
+              },
+              "Baseline": {
+                "type": "array",
+                "items": {
+                  "type": "string",
+                  "minLength": 1
+                },
+                "uniqueItems": true
+              },
+              "Fast": {
+                "type": "array",
+                "items": {
+                  "type": "string",
+                  "minLength": 1
+                },
+                "uniqueItems": true
+              },
+              "Full": {
+                "type": "array",
+                "items": {
+                  "type": "string",
+                  "minLength": 1
+                },
+                "uniqueItems": true
+              },
+              "Release": {
+                "type": "array",
+                "items": {
+                  "type": "string",
+                  "minLength": 1
+                },
+                "uniqueItems": true
+              }
+            },
+            "required": [
+              "Baseline",
+              "Fast",
+              "Full",
+              "Release"
+            ]
+          }
+        },
+        "policy_checks": {
+          "type": "array",
+          "items": {
+            "type": "string",
+            "minLength": 1
+          },
+          "uniqueItems": true
+        },
+        "commands": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "additionalProperties": false,
+            "properties": {
+              "id": {
+                "type": "string",
+                "pattern": "^[A-Za-z0-9][A-Za-z0-9._-]{1,63}$"
+              },
+              "enabled": {
+                "type": "boolean"
+              },
+              "profiles": {
+                "type": "array",
+                "minItems": 1,
+                "uniqueItems": true,
+                "items": {
+                  "enum": [
+                    "Policy",
+                    "Baseline",
+                    "Fast",
+                    "Full",
+                    "Release",
+                    "Task",
+                    "Phase"
+                  ]
+                }
+              },
+              "argv": {
+                "type": "array",
+                "items": {
+                  "type": "string"
+                }
+              },
+              "cwd": {
+                "type": "string",
+                "minLength": 1
+              },
+              "timeout_seconds": {
+                "type": "integer",
+                "minimum": 1,
+                "maximum": 7200
+              },
+              "artifacts": {
+                "type": "array",
+                "items": {
+                  "type": "string",
+                  "minLength": 1
+                },
+                "uniqueItems": true
+              },
+              "test_report": {
+                "type": "object",
+                "additionalProperties": false,
+                "required": ["path", "min_tests", "max_skipped", "required_groups"],
+                "properties": {
+                  "path": {"type": "string", "pattern": "^artifacts/[A-Za-z0-9_/-]+\\.json$"},
+                  "min_tests": {"type": "integer", "minimum": 1},
+                  "max_skipped": {"type": "integer", "minimum": 0},
+                  "required_groups": {"type": "array", "uniqueItems": true, "items": {"type": "string", "minLength": 1}}
+                }
+              },
+              "environment": {
+                "enum": [
+                  "local",
+                  "test",
+                  "staging",
+                  "production"
+                ]
+              }
+            },
+            "required": [
+              "id",
+              "enabled",
+              "profiles",
+              "argv",
+              "cwd",
+              "timeout_seconds",
+              "artifacts",
+              "environment"
+            ]
+          }
+        }
+      },
+      "required": [
+        "requirements",
+        "policy_checks",
+        "commands"
+      ]
+    },
+    "iteration_limits": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "total_attempts": {
+          "type": "integer",
+          "minimum": 1
+        },
+        "same_failure": {
+          "type": "integer",
+          "minimum": 1
+        },
+        "external_retries": {
+          "type": "integer",
+          "minimum": 1
+        },
+        "elapsed_minutes": {
+          "type": "integer",
+          "minimum": 1
+        }
+      },
+      "required": [
+        "total_attempts",
+        "same_failure",
+        "external_retries",
+        "elapsed_minutes"
+      ]
+    },
+    "evidence": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "desktop": {
+          "type": "object",
+          "additionalProperties": false,
+          "properties": {
+            "width": {
+              "type": "integer",
+              "minimum": 1,
+              "maximum": 16384
+            },
+            "height": {
+              "type": "integer",
+              "minimum": 1,
+              "maximum": 16384
+            }
+          },
+          "required": [
+            "width",
+            "height"
+          ]
+        },
+        "mobile": {
+          "type": "object",
+          "additionalProperties": false,
+          "properties": {
+            "width": {
+              "type": "integer",
+              "minimum": 1,
+              "maximum": 16384
+            },
+            "height": {
+              "type": "integer",
+              "minimum": 1,
+              "maximum": 16384
+            }
+          },
+          "required": [
+            "width",
+            "height"
+          ]
+        }
+      },
+      "required": [
+        "desktop",
+        "mobile"
+      ]
+    }
+  },
+  "required": [
+    "schema_version",
+    "project",
+    "sources",
+    "risk",
+    "verification",
+    "iteration_limits",
+    "evidence"
+  ]
+}

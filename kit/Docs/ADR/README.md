@@ -1,0 +1,5 @@
+# Architecture Decision Records
+
+Create machine-readable ADRs from `Templates/ADR.json`; `ADR_TEMPLATE.md` is a supporting discussion outline, not the machine record. Protected changes and T3/T4 decisions require a current schema-valid ADR before their gated transition.
+
+Set the actual task ID/revision and all relevant protected identifiers in scope. Drafts start PROPOSED. A human reviews the content before it is marked ACCEPTED; that status alone cannot authorize implementation. Attach the record to the unprepared DRAFT using `attach --kind adr`, then prepare the task. Prepare hashes the ADR content into the task fingerprint, avoiding a self-referential ADR hash field. A separate design approval over that fingerprint is required before READY: in standard policy, a scoped user receipt recorded through `approval-request --phase design` then `approve` (no identity or trust file); in strict policy, a signed record from the designated human. An AI may draft the ADR but may not supply either approval. Changing the ADR afterward requires revision and new approval.

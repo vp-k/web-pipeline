@@ -1,0 +1,2 @@
+[CmdletBinding()] param([Parameter(Mandatory=$true)][ValidateSet('Policy','Baseline','Fast','Task','Phase','Full','Release')][string]$Profile,[Parameter(Mandatory=$true)][string]$TaskId,[string]$RunId,[string]$TrustPath,[string]$RootPath='.')
+$ErrorActionPreference='Stop';Import-Module (Join-Path $PSScriptRoot 'Pipeline.Common.psm1') -Force;$a=@('run','--task',$TaskId,'--profile',$Profile);if($RunId){$a+=@('--run-id',$RunId)};if($TrustPath){$a+=@('--trust',$TrustPath)};Invoke-WebPipeline $RootPath $a

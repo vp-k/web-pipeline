@@ -1,0 +1,1573 @@
+{
+  "schema_version": "2.0",
+  "approval_policy": "standard",
+  "project": {
+    "name": "web-development-pipeline",
+    "mode": "kit",
+    "ready": false,
+    "respect_gitignore": true,
+    "report_root": "Reports/Pipeline",
+    "generated_paths": ["dist", "build", ".next", "coverage", "test-results", "playwright-report"],
+    "supported_domains": [
+      "frontend",
+      "backend",
+      "database",
+      "api",
+      "authentication",
+      "authorization",
+      "security",
+      "privacy",
+      "payment",
+      "external_integration",
+      "infrastructure",
+      "deployment"
+    ]
+  },
+  "sources": {
+    "product_spec": "Docs/Product/PRODUCT_SPEC.md",
+    "feature_spec": "Docs/Product/FEATURE_SPEC_TEMPLATE.md",
+    "api_contract": "Docs/Architecture/API_CONTRACT.md",
+    "data_contract": "Docs/Architecture/DATA_CONTRACT.md",
+    "security_policy": "Docs/Architecture/SECURITY_MODEL.md",
+    "architecture": "Docs/Architecture/ARCHITECTURE.md"
+  },
+  "risk": {
+    "domain_floor": {
+      "frontend": "T0",
+      "backend": "T1",
+      "database": "T2",
+      "api": "T2",
+      "authentication": "T3",
+      "authorization": "T3",
+      "security": "T3",
+      "privacy": "T3",
+      "payment": "T4",
+      "external_integration": "T2",
+      "infrastructure": "T3",
+      "deployment": "T4"
+    },
+    "domain_protected_map": {
+      "authentication": [
+        "authentication"
+      ],
+      "authorization": [
+        "authorization_rbac"
+      ],
+      "privacy": [
+        "personal_data_pii"
+      ],
+      "payment": [
+        "payment"
+      ],
+      "infrastructure": [
+        "infrastructure"
+      ],
+      "deployment": [
+        "production_deployment"
+      ]
+    },
+    "protected_rules": {
+      "authentication": {
+        "tier": "T3",
+        "domains": [
+          "authentication"
+        ],
+        "roles": [
+          "Security Owner"
+        ],
+        "checks": {
+          "Full": [
+            "security",
+            "session-tests",
+            "authorization-tests"
+          ],
+          "Release": [
+            "security",
+            "session-tests",
+            "authorization-tests"
+          ]
+        }
+      },
+      "authorization_rbac": {
+        "tier": "T3",
+        "domains": [
+          "authorization"
+        ],
+        "roles": [
+          "Security Owner"
+        ],
+        "checks": {
+          "Full": [
+            "authorization-tests"
+          ],
+          "Release": [
+            "authorization-tests"
+          ]
+        }
+      },
+      "session_cookie": {
+        "tier": "T3",
+        "domains": [
+          "authentication"
+        ],
+        "roles": [
+          "Security Owner"
+        ],
+        "checks": {
+          "Full": [
+            "session-tests",
+            "security"
+          ],
+          "Release": [
+            "session-tests",
+            "security"
+          ]
+        }
+      },
+      "csrf_cors_csp": {
+        "tier": "T3",
+        "domains": [
+          "security"
+        ],
+        "roles": [
+          "Security Owner"
+        ],
+        "checks": {
+          "Full": [
+            "security"
+          ],
+          "Release": [
+            "security"
+          ]
+        }
+      },
+      "encryption": {
+        "tier": "T3",
+        "domains": [
+          "security"
+        ],
+        "roles": [
+          "Security Owner"
+        ],
+        "checks": {
+          "Full": [
+            "security"
+          ],
+          "Release": [
+            "security"
+          ]
+        }
+      },
+      "secrets_credentials": {
+        "tier": "T4",
+        "domains": [
+          "security"
+        ],
+        "roles": [
+          "Security Owner"
+        ],
+        "checks": {
+          "Full": [
+            "secret-detection",
+            "security"
+          ],
+          "Release": [
+            "secret-detection",
+            "security"
+          ]
+        }
+      },
+      "personal_data_pii": {
+        "tier": "T3",
+        "domains": [
+          "privacy"
+        ],
+        "roles": [
+          "Data Owner"
+        ],
+        "checks": {
+          "Full": [
+            "privacy-tests",
+            "security"
+          ],
+          "Release": [
+            "privacy-tests",
+            "security"
+          ]
+        }
+      },
+      "payment": {
+        "tier": "T4",
+        "domains": [
+          "payment"
+        ],
+        "roles": [
+          "Payment Owner",
+          "Tech Owner"
+        ],
+        "checks": {
+          "Full": [
+            "payment-tests",
+            "integration",
+            "security"
+          ],
+          "Release": [
+            "payment-tests",
+            "integration",
+            "security"
+          ]
+        }
+      },
+      "wallet_balance": {
+        "tier": "T4",
+        "domains": [
+          "payment",
+          "database"
+        ],
+        "roles": [
+          "Payment Owner",
+          "Data Owner"
+        ],
+        "checks": {
+          "Full": [
+            "payment-tests",
+            "integration",
+            "recovery-validation"
+          ],
+          "Release": [
+            "payment-tests",
+            "integration",
+            "recovery-validation"
+          ]
+        }
+      },
+      "database_schema": {
+        "tier": "T3",
+        "domains": [
+          "database"
+        ],
+        "roles": [
+          "DB Owner"
+        ],
+        "checks": {
+          "Full": [
+            "schema-check",
+            "migration-dry-run",
+            "rollback-validation"
+          ],
+          "Release": [
+            "schema-check",
+            "migration-dry-run",
+            "rollback-validation"
+          ]
+        }
+      },
+      "destructive_migration": {
+        "tier": "T4",
+        "domains": [
+          "database"
+        ],
+        "roles": [
+          "DB Owner",
+          "Data Owner"
+        ],
+        "checks": {
+          "Full": [
+            "migration-dry-run",
+            "restore-validation",
+            "recovery-validation"
+          ],
+          "Release": [
+            "migration-dry-run",
+            "restore-validation",
+            "recovery-validation"
+          ]
+        }
+      },
+      "production_data": {
+        "tier": "T4",
+        "domains": [
+          "database",
+          "privacy"
+        ],
+        "roles": [
+          "DB Owner",
+          "Data Owner"
+        ],
+        "checks": {
+          "Full": [
+            "privacy-tests",
+            "recovery-validation"
+          ],
+          "Release": [
+            "privacy-tests",
+            "recovery-validation"
+          ]
+        }
+      },
+      "public_api_contract": {
+        "tier": "T3",
+        "domains": [
+          "api"
+        ],
+        "roles": [
+          "API Owner"
+        ],
+        "checks": {
+          "Full": [
+            "contract-provider",
+            "contract-consumer",
+            "contract-compatibility"
+          ],
+          "Release": [
+            "contract-provider",
+            "contract-consumer",
+            "contract-compatibility"
+          ]
+        }
+      },
+      "webhook_contract": {
+        "tier": "T3",
+        "domains": [
+          "external_integration"
+        ],
+        "roles": [
+          "API Owner"
+        ],
+        "checks": {
+          "Full": [
+            "webhook-tests",
+            "contract-provider",
+            "contract-consumer"
+          ],
+          "Release": [
+            "webhook-tests",
+            "contract-provider",
+            "contract-consumer"
+          ]
+        }
+      },
+      "external_integration_contract": {
+        "tier": "T3",
+        "domains": [
+          "external_integration"
+        ],
+        "roles": [
+          "API Owner"
+        ],
+        "checks": {
+          "Full": [
+            "contract-provider",
+            "contract-consumer",
+            "integration"
+          ],
+          "Release": [
+            "contract-provider",
+            "contract-consumer",
+            "integration"
+          ]
+        }
+      },
+      "core_architecture": {
+        "tier": "T3",
+        "domains": [
+          "backend"
+        ],
+        "roles": [
+          "Tech Owner"
+        ],
+        "checks": {
+          "Full": [
+            "integration",
+            "build"
+          ],
+          "Release": [
+            "integration",
+            "build"
+          ]
+        }
+      },
+      "major_framework_sdk": {
+        "tier": "T3",
+        "domains": [
+          "backend",
+          "security"
+        ],
+        "roles": [
+          "Tech Owner",
+          "Security Owner"
+        ],
+        "checks": {
+          "Full": [
+            "dependency-audit",
+            "integration",
+            "build"
+          ],
+          "Release": [
+            "dependency-audit",
+            "integration",
+            "build"
+          ]
+        }
+      },
+      "infrastructure": {
+        "tier": "T3",
+        "domains": [
+          "infrastructure"
+        ],
+        "roles": [
+          "Infrastructure Owner"
+        ],
+        "checks": {
+          "Full": [
+            "infra-validate",
+            "security"
+          ],
+          "Release": [
+            "infra-validate",
+            "security"
+          ]
+        }
+      },
+      "production_deployment": {
+        "tier": "T4",
+        "domains": [
+          "deployment"
+        ],
+        "roles": [
+          "Infrastructure Owner"
+        ],
+        "checks": {
+          "Full": [
+            "production-build",
+            "deployment-smoke",
+            "recovery-validation"
+          ],
+          "Release": [
+            "production-build",
+            "deployment-smoke",
+            "recovery-validation"
+          ]
+        }
+      },
+      "dns_cdn_waf": {
+        "tier": "T4",
+        "domains": [
+          "infrastructure"
+        ],
+        "roles": [
+          "Infrastructure Owner",
+          "Security Owner"
+        ],
+        "checks": {
+          "Full": [
+            "infra-validate",
+            "security",
+            "smoke"
+          ],
+          "Release": [
+            "infra-validate",
+            "security",
+            "smoke"
+          ]
+        }
+      }
+    },
+    "path_rules": [
+      {
+        "pattern": "*auth*",
+        "domains": [
+          "authentication"
+        ],
+        "protected_changes": [
+          "authentication"
+        ],
+        "tier": "T3"
+      },
+      {
+        "pattern": "*session*",
+        "domains": [
+          "authentication"
+        ],
+        "protected_changes": [
+          "session_cookie"
+        ],
+        "tier": "T3"
+      },
+      {
+        "pattern": "*payment*",
+        "domains": [
+          "payment"
+        ],
+        "protected_changes": [
+          "payment"
+        ],
+        "tier": "T4"
+      },
+      {
+        "pattern": "*wallet*",
+        "domains": [
+          "payment"
+        ],
+        "protected_changes": [
+          "wallet_balance"
+        ],
+        "tier": "T4"
+      },
+      {
+        "pattern": "*migration*",
+        "domains": [
+          "database"
+        ],
+        "protected_changes": [
+          "database_schema"
+        ],
+        "tier": "T3"
+      },
+      {
+        "pattern": "*.sql",
+        "domains": [
+          "database"
+        ],
+        "protected_changes": [
+          "database_schema"
+        ],
+        "tier": "T3"
+      },
+      {
+        "pattern": "*openapi*",
+        "domains": [
+          "api"
+        ],
+        "protected_changes": [
+          "public_api_contract"
+        ],
+        "tier": "T3"
+      },
+      {
+        "pattern": "*.graphql",
+        "domains": [
+          "api"
+        ],
+        "protected_changes": [
+          "public_api_contract"
+        ],
+        "tier": "T3"
+      },
+      {
+        "pattern": "*.proto",
+        "domains": [
+          "api"
+        ],
+        "protected_changes": [
+          "public_api_contract"
+        ],
+        "tier": "T3"
+      },
+      {
+        "pattern": "*webhook*",
+        "domains": [
+          "external_integration"
+        ],
+        "protected_changes": [
+          "webhook_contract"
+        ],
+        "tier": "T3"
+      },
+      {
+        "pattern": "*.tf",
+        "domains": [
+          "infrastructure"
+        ],
+        "protected_changes": [
+          "infrastructure"
+        ],
+        "tier": "T3"
+      },
+      {
+        "pattern": ".github/workflows/*",
+        "domains": [
+          "infrastructure"
+        ],
+        "protected_changes": [
+          "infrastructure"
+        ],
+        "tier": "T3"
+      },
+      {
+        "pattern": "*Dockerfile*",
+        "domains": [
+          "infrastructure"
+        ],
+        "protected_changes": [
+          "infrastructure"
+        ],
+        "tier": "T3"
+      },
+      {
+        "pattern": "*.env*",
+        "domains": [
+          "security"
+        ],
+        "protected_changes": [
+          "secrets_credentials"
+        ],
+        "tier": "T4"
+      },
+      {
+        "pattern": "*secret*",
+        "domains": [
+          "security"
+        ],
+        "protected_changes": [
+          "secrets_credentials"
+        ],
+        "tier": "T4"
+      },
+      {
+        "pattern": "*.lock",
+        "domains": [
+          "security"
+        ],
+        "protected_changes": [
+          "major_framework_sdk"
+        ],
+        "tier": "T3"
+      },
+      {
+        "pattern": "*-lock.json",
+        "domains": [
+          "security"
+        ],
+        "protected_changes": [
+          "major_framework_sdk"
+        ],
+        "tier": "T3"
+      },
+      {
+        "pattern": "*-lock.yaml",
+        "domains": [
+          "security"
+        ],
+        "protected_changes": [
+          "major_framework_sdk"
+        ],
+        "tier": "T3"
+      },
+      {
+        "pattern": "*.lockb",
+        "domains": [
+          "security"
+        ],
+        "protected_changes": [
+          "major_framework_sdk"
+        ],
+        "tier": "T3"
+      },
+      {
+        "pattern": "*npm-shrinkwrap.json",
+        "domains": [
+          "security"
+        ],
+        "protected_changes": [
+          "major_framework_sdk"
+        ],
+        "tier": "T3"
+      },
+      {
+        "pattern": "*go.sum",
+        "domains": [
+          "security"
+        ],
+        "protected_changes": [
+          "major_framework_sdk"
+        ],
+        "tier": "T3"
+      },
+      {
+        "pattern": "*go.mod",
+        "domains": [
+          "security"
+        ],
+        "protected_changes": [
+          "major_framework_sdk"
+        ],
+        "tier": "T3"
+      },
+      {
+        "pattern": "*package.json",
+        "domains": [
+          "security"
+        ],
+        "protected_changes": [
+          "major_framework_sdk"
+        ],
+        "tier": "T3"
+      },
+      {
+        "pattern": "requirements*.txt",
+        "domains": [
+          "security"
+        ],
+        "protected_changes": [
+          "major_framework_sdk"
+        ],
+        "tier": "T3"
+      },
+      {
+        "pattern": "pipeline.config.yaml",
+        "domains": [
+          "infrastructure"
+        ],
+        "protected_changes": [
+          "core_architecture"
+        ],
+        "tier": "T3"
+      },
+      {
+        "pattern": "web_pipeline/*",
+        "domains": [
+          "backend"
+        ],
+        "protected_changes": [
+          "core_architecture"
+        ],
+        "tier": "T3"
+      },
+      {
+        "pattern": "Scripts/*",
+        "domains": [
+          "backend"
+        ],
+        "protected_changes": [
+          "core_architecture"
+        ],
+        "tier": "T3"
+      },
+      {
+        "pattern": "*.tsx",
+        "domains": [
+          "frontend"
+        ],
+        "protected_changes": [],
+        "tier": "T1"
+      },
+      {
+        "pattern": "*.vue",
+        "domains": [
+          "frontend"
+        ],
+        "protected_changes": [],
+        "tier": "T1"
+      },
+      {
+        "pattern": "*.css",
+        "domains": [
+          "frontend"
+        ],
+        "protected_changes": [],
+        "tier": "T0"
+      },
+      {
+        "pattern": "*.go",
+        "domains": [
+          "backend"
+        ],
+        "protected_changes": [],
+        "tier": "T1"
+      },
+      {
+        "pattern": "*.php",
+        "domains": [
+          "backend"
+        ],
+        "protected_changes": [],
+        "tier": "T1"
+      }
+    ]
+  },
+  "verification": {
+    "requirements": {
+      "frontend": {
+        "Baseline": [
+          "lint",
+          "typecheck",
+          "unit",
+          "build"
+        ],
+        "Fast": [
+          "format",
+          "lint",
+          "typecheck",
+          "unit"
+        ],
+        "Full": [
+          "format",
+          "lint",
+          "typecheck",
+          "unit",
+          "browser-e2e",
+          "accessibility",
+          "build",
+          "smoke"
+        ],
+        "Release": [
+          "format",
+          "lint",
+          "typecheck",
+          "unit",
+          "browser-e2e",
+          "accessibility",
+          "build",
+          "smoke",
+          "dependency-audit",
+          "security",
+          "performance",
+          "production-build"
+        ]
+      },
+      "backend": {
+        "Baseline": [
+          "lint",
+          "unit",
+          "build"
+        ],
+        "Fast": [
+          "format",
+          "lint",
+          "unit"
+        ],
+        "Full": [
+          "format",
+          "lint",
+          "unit",
+          "integration",
+          "build",
+          "smoke"
+        ],
+        "Release": [
+          "format",
+          "lint",
+          "unit",
+          "integration",
+          "build",
+          "smoke",
+          "security",
+          "dependency-audit",
+          "performance",
+          "production-build"
+        ]
+      },
+      "database": {
+        "Baseline": [
+          "schema-check",
+          "integration"
+        ],
+        "Fast": [
+          "schema-check"
+        ],
+        "Full": [
+          "schema-check",
+          "integration",
+          "migration-dry-run",
+          "rollback-validation"
+        ],
+        "Release": [
+          "schema-check",
+          "integration",
+          "migration-dry-run",
+          "rollback-validation",
+          "restore-validation"
+        ]
+      },
+      "api": {
+        "Baseline": [
+          "contract-provider",
+          "contract-consumer"
+        ],
+        "Fast": [
+          "contract-provider",
+          "contract-consumer"
+        ],
+        "Full": [
+          "contract-provider",
+          "contract-consumer",
+          "contract-compatibility",
+          "integration",
+          "smoke"
+        ],
+        "Release": [
+          "contract-provider",
+          "contract-consumer",
+          "contract-compatibility",
+          "integration",
+          "smoke",
+          "security"
+        ]
+      },
+      "authentication": {
+        "Baseline": [
+          "unit",
+          "integration"
+        ],
+        "Fast": [
+          "unit"
+        ],
+        "Full": [
+          "unit",
+          "integration",
+          "security",
+          "session-tests",
+          "authorization-tests"
+        ],
+        "Release": [
+          "unit",
+          "integration",
+          "security",
+          "session-tests",
+          "authorization-tests"
+        ]
+      },
+      "authorization": {
+        "Baseline": [
+          "unit",
+          "integration"
+        ],
+        "Fast": [
+          "unit"
+        ],
+        "Full": [
+          "unit",
+          "integration",
+          "authorization-tests",
+          "security"
+        ],
+        "Release": [
+          "unit",
+          "integration",
+          "authorization-tests",
+          "security"
+        ]
+      },
+      "security": {
+        "Baseline": [
+          "security"
+        ],
+        "Fast": [
+          "security"
+        ],
+        "Full": [
+          "security"
+        ],
+        "Release": [
+          "security",
+          "dependency-audit"
+        ]
+      },
+      "privacy": {
+        "Baseline": [
+          "unit"
+        ],
+        "Fast": [
+          "unit"
+        ],
+        "Full": [
+          "privacy-tests",
+          "integration",
+          "security"
+        ],
+        "Release": [
+          "privacy-tests",
+          "integration",
+          "security"
+        ]
+      },
+      "payment": {
+        "Baseline": [
+          "unit",
+          "integration"
+        ],
+        "Fast": [
+          "unit"
+        ],
+        "Full": [
+          "payment-tests",
+          "integration",
+          "security",
+          "contract-provider"
+        ],
+        "Release": [
+          "payment-tests",
+          "integration",
+          "security",
+          "contract-provider",
+          "recovery-validation"
+        ]
+      },
+      "external_integration": {
+        "Baseline": [
+          "contract-provider",
+          "contract-consumer"
+        ],
+        "Fast": [
+          "contract-provider"
+        ],
+        "Full": [
+          "contract-provider",
+          "contract-consumer",
+          "integration",
+          "webhook-tests"
+        ],
+        "Release": [
+          "contract-provider",
+          "contract-consumer",
+          "integration",
+          "webhook-tests"
+        ]
+      },
+      "infrastructure": {
+        "Baseline": [
+          "infra-validate"
+        ],
+        "Fast": [
+          "infra-validate"
+        ],
+        "Full": [
+          "infra-validate",
+          "security",
+          "smoke"
+        ],
+        "Release": [
+          "infra-validate",
+          "security",
+          "smoke",
+          "recovery-validation",
+          "dependency-audit"
+        ]
+      },
+      "deployment": {
+        "Baseline": [
+          "build"
+        ],
+        "Fast": [
+          "build"
+        ],
+        "Full": [
+          "build",
+          "smoke"
+        ],
+        "Release": [
+          "build",
+          "smoke",
+          "production-build",
+          "deployment-smoke",
+          "recovery-validation"
+        ]
+      }
+    },
+    "policy_checks": [
+      "secret-detection",
+      "dependency-policy"
+    ],
+    "commands": [
+      {
+        "id": "accessibility",
+        "enabled": false,
+        "profiles": [
+          "Policy",
+          "Baseline",
+          "Fast",
+          "Full",
+          "Release"
+        ],
+        "argv": [],
+        "cwd": ".",
+        "timeout_seconds": 300,
+        "artifacts": [],
+        "environment": "test"
+      },
+      {
+        "id": "authorization-tests",
+        "enabled": false,
+        "profiles": [
+          "Policy",
+          "Baseline",
+          "Fast",
+          "Full",
+          "Release"
+        ],
+        "argv": [],
+        "cwd": ".",
+        "timeout_seconds": 300,
+        "artifacts": [],
+        "environment": "test"
+      },
+      {
+        "id": "browser-e2e",
+        "enabled": false,
+        "profiles": [
+          "Policy",
+          "Baseline",
+          "Fast",
+          "Full",
+          "Release"
+        ],
+        "argv": [],
+        "cwd": ".",
+        "timeout_seconds": 300,
+        "artifacts": [
+          "screenshots/manifest.json"
+        ],
+        "environment": "test"
+      },
+      {
+        "id": "build",
+        "enabled": false,
+        "profiles": [
+          "Policy",
+          "Baseline",
+          "Fast",
+          "Full",
+          "Release"
+        ],
+        "argv": [],
+        "cwd": ".",
+        "timeout_seconds": 300,
+        "artifacts": [],
+        "environment": "test"
+      },
+      {
+        "id": "contract-compatibility",
+        "enabled": false,
+        "profiles": [
+          "Policy",
+          "Baseline",
+          "Fast",
+          "Full",
+          "Release"
+        ],
+        "argv": [],
+        "cwd": ".",
+        "timeout_seconds": 300,
+        "artifacts": [],
+        "environment": "test"
+      },
+      {
+        "id": "contract-consumer",
+        "enabled": false,
+        "profiles": [
+          "Policy",
+          "Baseline",
+          "Fast",
+          "Full",
+          "Release"
+        ],
+        "argv": [],
+        "cwd": ".",
+        "timeout_seconds": 300,
+        "artifacts": [],
+        "environment": "test"
+      },
+      {
+        "id": "contract-provider",
+        "enabled": false,
+        "profiles": [
+          "Policy",
+          "Baseline",
+          "Fast",
+          "Full",
+          "Release"
+        ],
+        "argv": [],
+        "cwd": ".",
+        "timeout_seconds": 300,
+        "artifacts": [],
+        "environment": "test"
+      },
+      {
+        "id": "dependency-audit",
+        "enabled": false,
+        "profiles": [
+          "Policy",
+          "Baseline",
+          "Fast",
+          "Full",
+          "Release"
+        ],
+        "argv": [],
+        "cwd": ".",
+        "timeout_seconds": 300,
+        "artifacts": [],
+        "environment": "test"
+      },
+      {
+        "id": "dependency-policy",
+        "enabled": false,
+        "profiles": [
+          "Policy",
+          "Baseline",
+          "Fast",
+          "Full",
+          "Release"
+        ],
+        "argv": [],
+        "cwd": ".",
+        "timeout_seconds": 300,
+        "artifacts": [],
+        "environment": "test"
+      },
+      {
+        "id": "deployment-smoke",
+        "enabled": false,
+        "profiles": [
+          "Policy",
+          "Baseline",
+          "Fast",
+          "Full",
+          "Release"
+        ],
+        "argv": [],
+        "cwd": ".",
+        "timeout_seconds": 300,
+        "artifacts": [],
+        "environment": "test"
+      },
+      {
+        "id": "format",
+        "enabled": false,
+        "profiles": [
+          "Policy",
+          "Baseline",
+          "Fast",
+          "Full",
+          "Release"
+        ],
+        "argv": [],
+        "cwd": ".",
+        "timeout_seconds": 300,
+        "artifacts": [],
+        "environment": "test"
+      },
+      {
+        "id": "infra-validate",
+        "enabled": false,
+        "profiles": [
+          "Policy",
+          "Baseline",
+          "Fast",
+          "Full",
+          "Release"
+        ],
+        "argv": [],
+        "cwd": ".",
+        "timeout_seconds": 300,
+        "artifacts": [],
+        "environment": "test"
+      },
+      {
+        "id": "integration",
+        "enabled": false,
+        "profiles": [
+          "Policy",
+          "Baseline",
+          "Fast",
+          "Full",
+          "Release"
+        ],
+        "argv": [],
+        "cwd": ".",
+        "timeout_seconds": 300,
+        "artifacts": [],
+        "environment": "test"
+      },
+      {
+        "id": "lint",
+        "enabled": false,
+        "profiles": [
+          "Policy",
+          "Baseline",
+          "Fast",
+          "Full",
+          "Release"
+        ],
+        "argv": [],
+        "cwd": ".",
+        "timeout_seconds": 300,
+        "artifacts": [],
+        "environment": "test"
+      },
+      {
+        "id": "migration-dry-run",
+        "enabled": false,
+        "profiles": [
+          "Policy",
+          "Baseline",
+          "Fast",
+          "Full",
+          "Release"
+        ],
+        "argv": [],
+        "cwd": ".",
+        "timeout_seconds": 300,
+        "artifacts": [],
+        "environment": "test"
+      },
+      {
+        "id": "payment-tests",
+        "enabled": false,
+        "profiles": [
+          "Policy",
+          "Baseline",
+          "Fast",
+          "Full",
+          "Release"
+        ],
+        "argv": [],
+        "cwd": ".",
+        "timeout_seconds": 300,
+        "artifacts": [],
+        "environment": "test"
+      },
+      {
+        "id": "performance",
+        "enabled": false,
+        "profiles": [
+          "Policy",
+          "Baseline",
+          "Fast",
+          "Full",
+          "Release"
+        ],
+        "argv": [],
+        "cwd": ".",
+        "timeout_seconds": 300,
+        "artifacts": [],
+        "environment": "test"
+      },
+      {
+        "id": "privacy-tests",
+        "enabled": false,
+        "profiles": [
+          "Policy",
+          "Baseline",
+          "Fast",
+          "Full",
+          "Release"
+        ],
+        "argv": [],
+        "cwd": ".",
+        "timeout_seconds": 300,
+        "artifacts": [],
+        "environment": "test"
+      },
+      {
+        "id": "production-build",
+        "enabled": false,
+        "profiles": [
+          "Policy",
+          "Baseline",
+          "Fast",
+          "Full",
+          "Release"
+        ],
+        "argv": [],
+        "cwd": ".",
+        "timeout_seconds": 300,
+        "artifacts": [],
+        "environment": "test"
+      },
+      {
+        "id": "recovery-validation",
+        "enabled": false,
+        "profiles": [
+          "Policy",
+          "Baseline",
+          "Fast",
+          "Full",
+          "Release"
+        ],
+        "argv": [],
+        "cwd": ".",
+        "timeout_seconds": 300,
+        "artifacts": [],
+        "environment": "test"
+      },
+      {
+        "id": "restore-validation",
+        "enabled": false,
+        "profiles": [
+          "Policy",
+          "Baseline",
+          "Fast",
+          "Full",
+          "Release"
+        ],
+        "argv": [],
+        "cwd": ".",
+        "timeout_seconds": 300,
+        "artifacts": [],
+        "environment": "test"
+      },
+      {
+        "id": "rollback-validation",
+        "enabled": false,
+        "profiles": [
+          "Policy",
+          "Baseline",
+          "Fast",
+          "Full",
+          "Release"
+        ],
+        "argv": [],
+        "cwd": ".",
+        "timeout_seconds": 300,
+        "artifacts": [],
+        "environment": "test"
+      },
+      {
+        "id": "schema-check",
+        "enabled": false,
+        "profiles": [
+          "Policy",
+          "Baseline",
+          "Fast",
+          "Full",
+          "Release"
+        ],
+        "argv": [],
+        "cwd": ".",
+        "timeout_seconds": 300,
+        "artifacts": [],
+        "environment": "test"
+      },
+      {
+        "id": "secret-detection",
+        "enabled": false,
+        "profiles": [
+          "Policy",
+          "Baseline",
+          "Fast",
+          "Full",
+          "Release"
+        ],
+        "argv": [],
+        "cwd": ".",
+        "timeout_seconds": 300,
+        "artifacts": [],
+        "environment": "test"
+      },
+      {
+        "id": "security",
+        "enabled": false,
+        "profiles": [
+          "Policy",
+          "Baseline",
+          "Fast",
+          "Full",
+          "Release"
+        ],
+        "argv": [],
+        "cwd": ".",
+        "timeout_seconds": 300,
+        "artifacts": [],
+        "environment": "test"
+      },
+      {
+        "id": "session-tests",
+        "enabled": false,
+        "profiles": [
+          "Policy",
+          "Baseline",
+          "Fast",
+          "Full",
+          "Release"
+        ],
+        "argv": [],
+        "cwd": ".",
+        "timeout_seconds": 300,
+        "artifacts": [],
+        "environment": "test"
+      },
+      {
+        "id": "smoke",
+        "enabled": false,
+        "profiles": [
+          "Policy",
+          "Baseline",
+          "Fast",
+          "Full",
+          "Release"
+        ],
+        "argv": [],
+        "cwd": ".",
+        "timeout_seconds": 300,
+        "artifacts": [],
+        "environment": "test"
+      },
+      {
+        "id": "typecheck",
+        "enabled": false,
+        "profiles": [
+          "Policy",
+          "Baseline",
+          "Fast",
+          "Full",
+          "Release"
+        ],
+        "argv": [],
+        "cwd": ".",
+        "timeout_seconds": 300,
+        "artifacts": [],
+        "environment": "test"
+      },
+      {
+        "id": "unit",
+        "enabled": false,
+        "profiles": [
+          "Policy",
+          "Baseline",
+          "Fast",
+          "Full",
+          "Release"
+        ],
+        "argv": [],
+        "cwd": ".",
+        "timeout_seconds": 300,
+        "artifacts": [],
+        "environment": "test"
+      },
+      {
+        "id": "webhook-tests",
+        "enabled": false,
+        "profiles": [
+          "Policy",
+          "Baseline",
+          "Fast",
+          "Full",
+          "Release"
+        ],
+        "argv": [],
+        "cwd": ".",
+        "timeout_seconds": 300,
+        "artifacts": [],
+        "environment": "test"
+      }
+    ]
+  },
+  "iteration_limits": {
+    "total_attempts": 5,
+    "same_failure": 3,
+    "external_retries": 2,
+    "elapsed_minutes": 120
+  },
+  "evidence": {
+    "desktop": {
+      "width": 1440,
+      "height": 900
+    },
+    "mobile": {
+      "width": 390,
+      "height": 844
+    }
+  }
+}

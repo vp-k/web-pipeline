@@ -1,0 +1,2 @@
+[CmdletBinding()] param([Parameter(Mandatory=$true)][string]$TaskId,[Parameter(Mandatory=$true)][ValidateSet('DRAFT','READY','IN_PROGRESS','VERIFYING','REVIEW','DONE','BLOCKED')][string]$Status,[string]$TrustPath,[string]$RootPath='.')
+$ErrorActionPreference='Stop';Import-Module (Join-Path $PSScriptRoot 'Pipeline.Common.psm1') -Force;$a=@('transition','--task',$TaskId,'--status',$Status);if($TrustPath){$a+=@('--trust',$TrustPath)};Invoke-WebPipeline $RootPath $a
