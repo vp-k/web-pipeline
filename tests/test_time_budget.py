@@ -99,7 +99,9 @@ class TimeBudgetExecutionTests(unittest.TestCase):
         self.root, self.task = self.f.root, self.f.f.task
         config = load_config(self.root)
         config['iteration_limits']['time_budget_mode'] = 'warn'
-        next(c for c in config['verification']['commands'] if c['id'] == 'unit')['timeout_seconds'] = 1
+        # Short enough for the timeout test, long enough that the passing check
+        # (a Python start-up) does not time out under parallel suite load.
+        next(c for c in config['verification']['commands'] if c['id'] == 'unit')['timeout_seconds'] = 10
         atomic_json(self.root / 'pipeline.config.yaml', config)
         self.f.f.git('add', '.')
         self.f.f.git('commit', '-qm', 'isolated advisory policy fixture')
@@ -136,7 +138,7 @@ class TimeBudgetExecutionTests(unittest.TestCase):
     def test_real_command_timeout_still_fails_after_advisory_threshold(self):
         self.f.f.baseline_and_start()
         self.exceed_task_time()
-        atomic_text(self.root / 'check.py', 'import time\ntime.sleep(10)\n')
+        atomic_text(self.root / 'check.py', 'import time\ntime.sleep(60)\n')
         result = run_profile(self.root, self.task, 'Full')
         self.assertEqual('FAIL', result['status'])
         self.assertTrue(result['warnings'])
@@ -195,6 +197,32 @@ class TimeBudgetExecutionTests(unittest.TestCase):
         # Visibility of the lease must not permit new execution in NOT_READY.
         with self.assertRaisesRegex(PipelineError, 'NOT_READY'):
             self.f.complete(ticket)
+
+    def test_busy_diagnostics_survive_structurally_invalid_config(self):
+        # 2.12.0 regression: time warnings loaded the config, so a config broken
+        # mid-repair made loop status/next raise and hid the lease (2.11 did not).
+        self.f.begin()
+        ticket = self.f.next()
+        config_path, queue_path = self.root / 'pipeline.config.yaml', self.root / autopilot.QUEUE
+        original = config_path.read_bytes()
+        missing_cwd = load_config(self.root)
+        next(c for c in missing_cwd['verification']['commands'] if c['id'] == 'unit')['cwd'] = 'not-created-yet'
+        before = queue_path.read_bytes()
+        for label, write in [('syntax', lambda: atomic_text(config_path, '{ "broken": ')),
+                             ('missing cwd', lambda: atomic_json(config_path, missing_cwd))]:
+            with self.subTest(label):
+                write()
+                status = autopilot.status(self.root)
+                self.assertEqual('BUSY', status['status'])
+                self.assertEqual(ticket['token'], status['lease']['token'])
+                self.assertTrue(any('unavailable' in w for w in status['warnings']), status['warnings'])
+                self.assertEqual('BUSY', self.f.next()['status'])
+                # Diagnostics only: execution still fails closed on the broken config.
+                with self.assertRaises(PipelineError):
+                    self.f.complete(ticket)
+                self.assertEqual(before, queue_path.read_bytes())
+        config_path.write_bytes(original)
+        self.assertEqual('CONTINUE', self.f.complete(ticket)['status'])
 
     def test_budget_only_interrupted_summary_recovers_without_false_pass(self):
         config = load_config(self.root)

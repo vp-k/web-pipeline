@@ -1,5 +1,9 @@
 # Changelog
 
+## 2.12.1 — 진단 회귀 수정
+
+- `loop status`/`loop next`가 설정 파일이 구조적으로 깨진 상태(JSON 문법 오류, 활성 명령의 `cwd` 부재 등)에서 예외로 끝나 활성 리스를 가리던 2.12.0 회귀를 고쳤다. 작업별 누적 시간 경고를 계산할 수 없으면 `Task time warnings unavailable: …` 경고만 남기고 BUSY/리스를 그대로 보여 준다. 실행(`loop complete` 등)은 여전히 정상 설정 검증에서 막힌다.
+
 ## 2.12.0 — 반복 중단 완화와 제품 중심 도입
 
 - 일반 개발 준비에서 Release 전용 check 활성화를 요구하지 않는다. Release 실행 시 필수 검사·승인·NOT_RUN 판정은 유지한다.

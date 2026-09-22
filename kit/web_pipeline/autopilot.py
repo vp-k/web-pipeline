@@ -136,13 +136,16 @@ def _limited(queue):
 
 def _time_warnings(root, queue):
     warnings = time_warnings(queue['plan'], queue, 'Queue')
-    # Diagnostics must not hide an existing lease during readiness repairs.
-    # Execution still uses normal project validation before each action.
-    config = load_config(root, kit=True)
-    for item in queue['items']:
-        state = read_state(root, item['task_id'])
-        warnings.extend(time_warnings(config['iteration_limits'], state['iteration'],
-                                      f"Task {item['task_id']}"))
+    # Diagnostics must not hide an existing lease during readiness repairs, even
+    # while the configuration is structurally invalid. Execution still uses
+    # normal project validation before each action.
+    try:
+        limits = load_config(root, kit=True)['iteration_limits']
+        for item in queue['items']:
+            state = read_state(root, item['task_id'])
+            warnings.extend(time_warnings(limits, state['iteration'], f"Task {item['task_id']}"))
+    except (PipelineError, ValueError, OSError, KeyError) as exc:
+        warnings.append(f'Task time warnings unavailable: {exc}')
     return warnings
 
 
