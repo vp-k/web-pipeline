@@ -43,7 +43,8 @@ class BoundaryOrderTests(unittest.TestCase):
         self.assertIn('authorization_rbac', result['protected_changes'])
         state.update({key: result[key] for key in ('risk_tier', 'change_domains', 'protected_changes')})
         plan = scopes.selection(f.root, config, state, 'Task', changed_paths=['a.py'])
-        self.assertEqual('project', plan['level'])
+        self.assertEqual('task', plan['level'])
+        self.assertEqual(['a', 'b'], plan['components'])
         self.assertIn('authorization-tests', plan['checks'])
 
     def group_fixture(self):

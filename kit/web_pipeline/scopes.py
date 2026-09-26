@@ -173,9 +173,14 @@ def selection(root, config, state, profile, *, changed_paths=None, trust_path=No
     project_wide = profile in {'Full', 'Release'}
     if project_wide:
         reasons.append('explicit project-wide profile')
-    if state['risk_tier'] in {'T3', 'T4'} or state.get('protected_changes'):
+    # Fast is iteration, not a gate. T4 gates stay project-wide; protected/T3
+    # gates add the task's own domain and protected checks to its components.
+    protected = state['risk_tier'] == 'T3' or bool(state.get('protected_changes'))
+    if state['risk_tier'] == 'T4' and profile != 'Fast':
         project_wide = True
-        reasons.append('protected or high-risk change')
+        reasons.append('T4 change')
+    elif protected and profile not in {'Fast', 'Policy'}:
+        reasons.append('protected or T3 checks for the task domains')
     for path in changed_paths:
         owners = {c['id'] for c in model['components'] if _matches(path, c['paths'])}
         if _matches(path, (*BROAD_PATHS, *model['broad_paths'])):
@@ -232,6 +237,9 @@ def selection(root, config, state, profile, *, changed_paths=None, trust_path=No
                 checks.update(model['phase_checks'])
             if profile in COMPLETION:
                 checks.update(task_checks)
+            if protected and profile in {'Baseline', *COMPLETION}:
+                checks.update(required_checks(config, effective,
+                                              'Baseline' if profile == 'Baseline' else 'Full', task_checks))
         if boundary_model:
             checks.add(boundary_model['dependency_check'])
             if profile in COMPLETION:

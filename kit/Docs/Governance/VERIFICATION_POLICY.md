@@ -25,7 +25,7 @@ Only an executed, conclusive, successful check is PASS.
 
 The configured command list is project-specific. A command marked required but disabled or unset is a policy error.
 
-Opt-in `verification.scopes` narrows completion runs; see [scope configuration and phase gates](../Runbooks/VERIFICATION_SCOPES.md). Task completion uses Task, a tracked phase uses Phase, and Full/Release cover the configured project. Unknown/ambiguous impact, broad inputs and protected/T3/T4 work expand to project-wide checks. Existing configurations without scopes retain Full completion. Phase coverage validates exact historical member evidence only after current combined-source checks and required review/approvals pass; it is not a cached PASS.
+Opt-in `verification.scopes` narrows completion runs; see [scope configuration and phase gates](../Runbooks/VERIFICATION_SCOPES.md). Task completion uses Task, a tracked phase uses Phase, and Full/Release cover the configured project. Unknown/ambiguous impact, broad inputs and T4 work expand to project-wide checks. Protected/T3 work adds its domain and protected-rule checks to the component scope instead; Fast stays component-scoped. Existing configurations without scopes retain Full completion. Phase coverage validates exact historical member evidence only after current combined-source checks and required review/approvals pass; it is not a cached PASS.
 
 Task/Phase/Full/Release also execute the check IDs in the task's ACCEPTANCE.json. Prepare rejects disabled or Full-ineligible acceptance checks; scoped profiles can execute Full-eligible commands. The Policy profile calls the common state/risk policy validator before executing its configured commands; a policy failure cannot become a successful Policy run.
 

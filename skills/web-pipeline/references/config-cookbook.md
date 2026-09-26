@@ -372,7 +372,7 @@ boundaries:
 scopes:
 - `boundaries` 가 있으면 component id 와 `paths` 가 두 모델에서 정확히 같아야 한다. `depends_on` 은 달라도 된다: scopes 의 `"web" depends_on ["api"]` 는 "api 가 바뀌면 web 의 Task check 도 실행".
 - component `domains` ⊆ `supported_domains`. scopes 의 모든 check 는 enabled + `Full` 프로필. `phase_checks` 최소 1개.
-- 설정하면 완료 프로필이 `Full` 에서 `Task`/`Phase` 로 바뀌고 `SCOPE.json` 을 쓸 수 있다. 다음 경우 프로젝트 전체로 확장된다(`verification-plan` 의 `reasons`): T3/T4·보호 변경, `broad_paths`, 내장 broad 경로(`pipeline.config.yaml`, `package.json`, `pyproject.toml`, `requirements*.txt`, `*.lock`/`*-lock.json`/`*-lock.yaml`/`*.lockb`/`*npm-shrinkwrap.json`, `*go.mod`/`*go.sum`, `web_pipeline/*`, `Schemas/*`/`schemas/*`, `Scripts/*`/`scripts/*`, `.github/*`, `Docs/Governance/*`, `Docs/Architecture/*`, `AGENTS.md`, `PIPELINE.md`, `CLAUDE.md`), 그리고 **어느 component 에도 속하지 않거나 둘 이상에 속하는 변경 경로**(`README.md`, `contracts/*` 등). 확장은 오류가 아니다.
+- 설정하면 완료 프로필이 `Full` 에서 `Task`/`Phase` 로 바뀌고 `SCOPE.json` 을 쓸 수 있다. 다음 경우 프로젝트 전체로 확장된다(`verification-plan` 의 `reasons`): T4(Fast 제외), `broad_paths`, 내장 broad 경로(`pipeline.config.yaml`, `package.json`, `pyproject.toml`, `requirements*.txt`, `*.lock`/`*-lock.json`/`*-lock.yaml`/`*.lockb`/`*npm-shrinkwrap.json`, `*go.mod`/`*go.sum`, `web_pipeline/*`, `Schemas/*`/`schemas/*`, `Scripts/*`/`scripts/*`, `.github/*`, `Docs/Governance/*`, `Docs/Architecture/*`, `AGENTS.md`, `PIPELINE.md`, `CLAUDE.md`), 그리고 **어느 component 에도 속하지 않거나 둘 이상에 속하는 변경 경로**(`README.md`, `contracts/*` 등). 확장은 오류가 아니다. T3·보호 변경은 확장 대신 그 task 도메인·보호 규칙의 check 를 Baseline/Task/Phase 에 더한다.
 
 ## 5. 출력 경로
 

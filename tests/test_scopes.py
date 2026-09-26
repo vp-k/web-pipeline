@@ -103,8 +103,53 @@ class ScopeTests(unittest.TestCase):
             plan = scopes.selection(self.root, self.config, state, 'Task', changed_paths=[path])
             self.assertEqual('project', plan['level'])
             self.assertIn('phase-integration', plan['checks'])
-        state['risk_tier'] = 'T3'
-        self.assertEqual('project', scopes.selection(self.root, self.config, state, 'Task', changed_paths=[])['level'])
+
+    def protected_config(self):
+        config = copy.deepcopy(self.config)
+        for check in ('authz-unit', 'authorization-tests'):
+            config['verification']['commands'].append({
+                'id': check, 'enabled': True, 'profiles': ['Full', 'Release'],
+                'argv': [sys.executable, '-c', 'pass'], 'cwd': '.', 'timeout_seconds': 30,
+                'artifacts': [], 'environment': 'test'})
+        config['verification']['requirements']['authorization'] = {
+            'Baseline': ['authz-unit'], 'Fast': ['authz-unit'],
+            'Full': ['authorization-tests'], 'Release': ['authorization-tests']}
+        config.setdefault('risk', {}).setdefault('protected_rules', {})['authorization_rbac'] = {
+            'tier': 'T3', 'domains': ['authorization'], 'roles': ['Security Owner'],
+            'checks': {'Full': ['authorization-tests'], 'Release': ['authorization-tests']}}
+        state = read_state(self.root, self.task)
+        state.update(risk_tier='T3', change_domains=['authorization', 'backend'],
+                     protected_changes=['authorization_rbac'])
+        return config, state
+
+    def test_protected_t3_task_adds_its_own_checks_without_project_wide_suites(self):
+        config, state = self.protected_config()
+        plan = lambda profile: scopes.selection(self.root, config, state, profile, changed_paths=['a.py'])
+        task = plan('Task')
+        self.assertEqual('task', task['level'], task)
+        self.assertEqual(['a'], task['components'])
+        self.assertTrue({'unit', 'unit-a', 'authorization-tests'} <= set(task['checks']), task)
+        self.assertFalse({'unit-b', 'phase-integration'} & set(task['checks']), task)
+        baseline = plan('Baseline')
+        self.assertEqual('task', baseline['level'])
+        self.assertIn('authz-unit', baseline['checks'])
+        self.assertNotIn('authorization-tests', baseline['checks'])
+        self.assertEqual({'unit', 'unit-a'}, set(plan('Fast')['checks']))
+        for profile in ('Full', 'Release'):
+            wide = plan(profile)
+            self.assertEqual('project', wide['level'])
+            self.assertTrue({'unit-b', 'phase-integration', 'authorization-tests'} <= set(wide['checks']))
+
+    def test_t4_completion_stays_project_wide_but_fast_iteration_is_scoped(self):
+        config, state = self.protected_config()
+        state['risk_tier'] = 'T4'
+        for profile in ('Baseline', 'Task'):
+            plan = scopes.selection(self.root, config, state, profile, changed_paths=['a.py'])
+            self.assertEqual('project', plan['level'], profile)
+            self.assertIn('unit-b', plan['checks'])
+        fast = scopes.selection(self.root, config, state, 'Fast', changed_paths=['a.py'])
+        self.assertEqual('task', fast['level'])
+        self.assertEqual({'unit', 'unit-a'}, set(fast['checks']))
 
     def test_release_selects_full_union_and_cannot_execute_without_gate(self):
         plan = scopes.selection(self.root, self.config, read_state(self.root, self.task), 'Release', changed_paths=[])

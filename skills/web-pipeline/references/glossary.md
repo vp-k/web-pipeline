@@ -116,7 +116,7 @@ test report 의 test status: `passed` `failed` `error` `skipped`.
 | `T0` | frontend | BRIEF, DOR, ACCEPTANCE, CLARIFICATIONS. standard 에서 review 없음 |
 | `T1` | backend | + self-review(standard) / Reviewer(strict) |
 | `T2` | database, api, external_integration | + `PLAN.md` |
-| `T3` | authentication, authorization, security, privacy, infrastructure | + `EXEC_PLAN.md`, ACCEPTED ADR, 사람 승인, 프로젝트 전체 검증 |
+| `T3` | authentication, authorization, security, privacy, infrastructure | + `EXEC_PLAN.md`, ACCEPTED ADR, 사람 승인, 도메인·보호 check 추가(scopes 설정 시 프로젝트 전체 아님) |
 | `T4` | payment, deployment | + `RELEASE.md`, `Release` 프로필, release 승인 |
 
 ## 용어

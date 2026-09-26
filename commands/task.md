@@ -12,7 +12,7 @@ argument-hint: "<what to build or fix> | <existing TaskId>"
 1. `python -m web_pipeline status` — 준비 상태, 진행 중인 작업, 잡힌 락을 먼저 본다. 인자가 기존 TaskId면 그 작업을 이어서 하고, 새로 만들지 않는다.
 2. **질문은 계획 단계에서 한 번에** — 기존 코드·문서로 답이 정해지지 않는 범위/동작/데이터/수용 기준만 묶어서 묻고, 실제 답을 받은 뒤 진행한다. 침묵이나 에이전트의 제안은 답이 아니다. `CLARIFICATIONS.json`에 기록한다.
 3. `new` → 문서 작성(`BRIEF.md`, `ACCEPTANCE.json`, 필요 시 `PLAN.md`/`SCOPE.json`) → `prepare` → `run --profile Baseline` → `transition --status READY`. 변경 **전에** Baseline을 잡는다. 변경 후 Baseline을 다시 잡아 사전 증거로 쓰지 않는다.
-4. 구현 → `run --profile Fast` 반복 → `verification-plan --task <id>`가 가리키는 완료 프로파일(Task/Phase/Full) 실행.
+4. 구현 → `run --profile Fast` 반복 → `verification-plan --task <id>`가 가리키는 완료 프로파일(Task/Phase/Full) 실행. Fast는 바뀐 component만 검사한다. 같은 원인으로 막힌 검증은 원인을 고치기 전에 다시 돌리지 않는다.
 5. **리뷰** — T1/T2는 `pipeline-reviewer` 서브에이전트에 diff와 수용 기준을 넘겨 새 컨텍스트에서 검토시킨 뒤, 그 결과를 `review --decision`으로 기록한다. 서브에이전트 기능이 없으면 별도의 로컬 검토를 수행하고 자체 리뷰임을 기록한다. 이것은 로컬 리뷰 기록이지 사람의 승인이 아니다.
 6. 보호 변경·T3/T4·예외·Release는 `approval-request`로 필요한 결정을 확인하고, `NO_APPROVAL_REQUIRED`/`SATISFIED`이면 계속한다. 그 외에는 기존 대화의 동의와 증거를 먼저 확인·복구하고, 실제 새 결정만 **한 번에 묶어** 묻는다. `references/approvals.md` 참고.
 7. `transition --status DONE` 후 작업 ID/리비전, 실제 상태, 실행된 check와 결과, 증거 경로, 실패와 남은 승인을 보고한다.

@@ -99,7 +99,8 @@ check 명령의 `argv[0]` 는 PATH/PATHEXT 로 해석되므로 Windows 에서도
 
 - completion 프로필: `verification.scopes` 없음 → `Full`; 있음 → `Phase`(SCOPE level phase) 또는 `Task`.
 - Fast/Task/Phase/Full 은 실행 전 policy gate 와 budget 을 검사하고 attempt 를 1 차감한다(PASS 또는 순수 시간 예산 중단이면 failed_attempts 예약분 환불; 중단 결과는 BLOCKED 유지). completion 프로필 시작 시 기존 `full_run` 은 지워진다.
-- T3/T4, 보호 변경, broad path(`pipeline.config.yaml`, `package.json`, lock 파일 등), 소유 component 가 모호한 경로는 scope 를 프로젝트 전체로 확장한다.
+- T4, broad path(`pipeline.config.yaml`, `package.json`, lock 파일 등), 소유 component 가 모호한 경로는 scope 를 프로젝트 전체로 확장한다. Fast 는 T4 여도 확장하지 않는다.
+- T3·보호 변경은 확장하지 않는다. 대신 Baseline/Task/Phase 에 그 task 도메인과 보호 규칙의 필수 check 를 더한다. 프로젝트 전체 검증은 통합 시점의 Phase·Full·Release 에서 한다.
 
 ## 5. `loop` 자동 진행
 

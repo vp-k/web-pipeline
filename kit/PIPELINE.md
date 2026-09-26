@@ -24,7 +24,7 @@ Start every session with `python -m web_pipeline status`. It is read-only and re
 - Within the user's requested scope, continue implementation, repair, verification and local review without asking permission at each step. A stage transition alone does not need renewed consent. In standard policy, unprotected T0-T2 work has no user-approval gate.
 - Before asking about protected work, inspect existing consent and recorded approvals. Do not repeat a question for a still-valid phase and scope. Group everything a phase requires into one concise question, after preparing the concrete decision and evidence. A design approval does not approve implementation results, exceptions, release readiness or production execution.
 - Resolve material questions during planning. Inspect existing evidence first; ask concrete questions when uncertainty changes scope, behavior, data, architecture or acceptance, and wait for the actual answer. Silence or your own proposal is never an answer. Record sources and resolutions in `CLARIFICATIONS.json` (`Docs/Runbooks/CLARIFICATIONS.md`).
-- With `verification.scopes`, ordinary tasks complete with Task and connected feature groups with a tracked Phase task (`Docs/Runbooks/VERIFICATION_SCOPES.md`). Unknown impact, broad inputs and protected or T3/T4 work expand to project-wide checks. Project-wide Full is not required after every small edit.
+- With `verification.scopes`, ordinary tasks complete with Task and connected feature groups with a tracked Phase task (`Docs/Runbooks/VERIFICATION_SCOPES.md`). Unknown impact, broad inputs and T4 work expand to project-wide checks. Protected/T3 work adds its own domain and protected checks without running every other suite. Project-wide Full is not required after every small edit.
 - Local self-review (`review`) covers standard, unprotected T1/T2 work only. Use a fresh-context reviewer when available; otherwise perform a separate local review and identify it as self-review; write the decision JSON inside `Docs/Work/<TaskId>/`.
 - Release is a separate T4 gate and is never implied by implementation completion.
 - Infrastructure, hosting, deployment and production operations belong to the user. Keep them out of plans, queues and completion criteria unless explicitly requested; record runtime requirements needed for handoff.
@@ -33,6 +33,16 @@ Start every session with `python -m web_pipeline status`. It is read-only and re
 - If a command reports a held lock, run `python -m web_pipeline locks`. A lock whose process is gone is reclaimed automatically; never delete a lock whose process is alive.
 
 Read [CONTINUATION.md](Docs/Runbooks/CONTINUATION.md) before treating a diagnostic as a user stop. In `time_budget_mode: warn`, elapsed-time warnings do not require renewal. Hard retry/step limits remain.
+
+## Work rhythm
+
+Implement one feature, check it with the relevant checks, then move to the next.
+
+- While implementing, run Fast for the changed components and fix what fails.
+- When the feature works, run its completion profile once, review it and close it. Project-wide verification belongs to the integrated change (Phase/Full).
+- Do not rerun a verification that failed or was interrupted for the same cause until that cause is fixed. If it cannot be fixed, record the blocker in one line and continue unblocked feature work.
+- Do not write procedural notes the engine does not require (resume notes, execution notes, cleanup logs). STATE and evidence carry the state.
+- Report delivered features and actual check results, not how many procedures ran.
 
 ## Product work first
 

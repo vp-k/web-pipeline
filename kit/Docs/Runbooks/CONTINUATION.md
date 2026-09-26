@@ -16,6 +16,11 @@ handoff note. Resolve causes within the existing request before ending the turn.
 | Git conflict/error | Preserve changes and finish the authorized integration before new feature work | A content decision or destructive recovery is not authorized |
 | Review tool unavailable | Perform and record a separate local self-review for ordinary standard work | The policy requires human/independent review that is unavailable |
 
+Do not repeat a verification blocked by the same cause before fixing that cause.
+If resource contention or a timeout persists after one diagnosis, report the
+blocker and continue other feature work. Reuse received approvals and valid
+evidence; state recovery is not a reason to ask for the same decision again.
+
 Recovery commands are explicit, auditable operations; "explicit" does not mean
 asking again when the current request already authorizes that recovery. Do not
 reset usage, replay unknown side effects, weaken checks or substitute an AI review

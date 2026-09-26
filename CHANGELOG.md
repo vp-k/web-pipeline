@@ -1,5 +1,11 @@
 # Changelog
 
+## 2.13.0 — 기능 단위 검증
+
+- T3·보호 변경이 더 이상 모든 검사를 프로젝트 전체로 확장하지 않는다. 바뀐 component 검사에 그 task 도메인과 보호 규칙의 필수 check를 더한다. Baseline은 도메인의 Baseline 요구, Task/Phase는 Full 요구를 쓴다.
+- Fast는 위험 등급 때문에 확장하지 않는다. T4의 Baseline/Task/Phase는 계속 프로젝트 전체다. Full·Release와 broad path·모호한 경로의 확장은 그대로다.
+- 지침에 작업 리듬을 추가했다. 기능 구현, 관련 검사, 다음 기능 순서다. 같은 원인으로 막힌 검증 반복과 엔진이 요구하지 않는 절차 메모를 금지한다.
+
 ## 2.12.1 — 진단 회귀 수정
 
 - `loop status`/`loop next`가 설정 파일이 구조적으로 깨진 상태(JSON 문법 오류, 활성 명령의 `cwd` 부재 등)에서 예외로 끝나 활성 리스를 가리던 2.12.0 회귀를 고쳤다. 작업별 누적 시간 경고를 계산할 수 없으면 `Task time warnings unavailable: …` 경고만 남기고 BUSY/리스를 그대로 보여 준다. 실행(`loop complete` 등)은 여전히 정상 설정 검증에서 막힌다.

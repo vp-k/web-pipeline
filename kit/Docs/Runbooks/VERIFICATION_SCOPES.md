@@ -58,8 +58,10 @@ produce browser evidence must handle PIPELINE_PROFILE values Task and Phase too.
 Paths use case-sensitive repository-relative fnmatch patterns (`*` spans `/`).
 Map tests and relevant assets as well as implementation paths. A changed path with
 zero or multiple component owners expands the run to project-wide. Common
-governance/engine/config/lockfile inputs also expand it. Protected/T3/T4 work always
-expands. A component change includes its transitive dependents. Classification
+governance/engine/config/lockfile inputs also expand it. T4 Baseline/Task/Phase
+expand. Protected/T3 work stays in its components and adds the Baseline or Full
+requirements of its domains and protected rules. Fast never expands for tier;
+project-wide coverage runs at Phase, Full or Release on the integrated change. A component change includes its transitive dependents. Classification
 includes their domains and still applies every existing protected/domain risk floor.
 
 When runtime boundaries are configured, component IDs and paths must match between

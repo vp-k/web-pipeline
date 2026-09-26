@@ -9,8 +9,8 @@ hosting/environment enforcement when those guarantees are needed.
 ## Completion evidence
 
 In scoped projects, completion evidence may be Task or Phase; Full remains a
-stronger project-wide run. Protected/T3/T4 scope always expands to project-wide
-checks. The legacy STATE field `full_run` points to this exact completion summary;
+stronger project-wide run. T4 scope expands to project-wide checks; protected/T3
+scope adds the task's domain and protected-rule checks. The legacy STATE field `full_run` points to this exact completion summary;
 user and signed review/release bindings still cover its source, run ID and hash.
 Phase coverage never supplies a missing member review or human decision.
 
