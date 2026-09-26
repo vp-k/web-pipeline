@@ -4,6 +4,15 @@ This project is governed by the web pipeline engine in `web_pipeline/`. `CLAUDE.
 
 Start every session with `python -m web_pipeline status`. It is read-only and reports readiness, open tasks, held locks, the queue and the next step.
 
+## Workflow mode
+
+`workflow` in `pipeline.config.yaml` selects how ordinary changes are tracked. A missing value means `tracked`.
+
+- `lean`: follow [LEAN.md](Docs/Runbooks/LEAN.md). Build one feature with its tests, run `python -m web_pipeline check` before each commit, get one fresh-context review and put the check table in the commit message. Do not create `Docs/Work` tasks for ordinary work.
+- `tracked`: every change is a task under `Docs/Work` and follows the Flow below.
+- In both modes, payment, deployment, release, production operations and destructive migrations use a tracked task.
+- Rules 4 to 9 below apply in both modes. Rules 1 to 3, rule 10 and the Flow apply to tracked tasks.
+
 ## Non-negotiable rules
 
 1. Read `pipeline.config.yaml` and the task folder `Docs/Work/<TaskId>/` before changing product code.

@@ -1,5 +1,13 @@
 # Changelog
 
+## 2.14.0 — lean 모드
+
+- 설정에 `workflow`(`lean`/`tracked`)를 추가했다. 새 도입은 `lean`이다. 값이 없는 기존 프로젝트는 `tracked`로 동작이 바뀌지 않는다.
+- `check` 명령을 추가했다. task 없이 작업 트리에서 활성 check를 돌리고 커밋 메시지용 결과표를 낸다. 실패하면 exit 1이다.
+- `check`는 변경 경로를 분류해 사용자 결정이 필요한 보호 변경(`decisions`)과 T4 여부(`tracked_required`)를 알려 준다.
+- lean 모드는 기능 단위로 구현하고, 커밋 전 check와 리뷰 1회를 거친다. `Docs/Work` 기록은 T4 작업에만 쓴다.
+- `/web-pipeline:check` 명령, `LEAN.md` 런북, `status`의 `workflow` 표시와 안내, `adopt --workflow`를 추가했다.
+
 ## 2.13.0 — 기능 단위 검증
 
 - T3·보호 변경이 더 이상 모든 검사를 프로젝트 전체로 확장하지 않는다. 바뀐 component 검사에 그 task 도메인과 보호 규칙의 필수 check를 더한다. Baseline은 도메인의 Baseline 요구, Task/Phase는 Full 요구를 쓴다.

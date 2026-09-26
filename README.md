@@ -20,8 +20,9 @@ Claude Code 플러그인 **`web-pipeline`**: 웹 프로젝트에 위험 등급(T
 
 | 항목 | 내용 |
 | --- | --- |
-| `/web-pipeline:adopt [path] [--domains a,b] [--ci]` | 프로젝트에 엔진 도입. 미리보기 → 충돌 없음 확인 → 복사. 기존 파일은 덮어쓰지 않는다 |
+| `/web-pipeline:adopt [path] [--domains a,b] [--ci] [--workflow lean\|tracked]` | 프로젝트에 엔진 도입. 미리보기 → 충돌 없음 확인 → 복사. 기존 파일은 덮어쓰지 않는다 |
 | `/web-pipeline:status [TaskId]` | 세션 시작 시 읽기 전용 현황(준비 상태, 작업, 락, 큐, 다음 할 일) |
+| `/web-pipeline:check <기능>` | lean 모드 기능 개발. 테스트와 구현, 커밋 전 `check`, 리뷰 1회, 결과표를 넣은 커밋 |
 | `/web-pipeline:task <TaskId>` | 작업 1건을 생성·준비·구현·검증·리뷰·완료까지 |
 | `/web-pipeline:loop [plan]` | 큐로 여러 작업을 정지 조건까지 계속 |
 | `/web-pipeline:upgrade [path] [--apply]` | 도입된 프로젝트의 엔진 업그레이드(백업·복원 포함) |

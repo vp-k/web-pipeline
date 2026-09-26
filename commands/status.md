@@ -11,6 +11,7 @@ argument-hint: "[TaskId]"
 python -m web_pipeline status
 ```
 
+- `workflow`를 먼저 알린다. `lean`이면 기능 작업은 `/web-pipeline:check` 흐름이고, `tracked`면 `/web-pipeline:task` 흐름이다.
 - `pipeline.config.yaml`이 없으면 도입되지 않은 저장소다. `python "${CLAUDE_PLUGIN_ROOT}/scripts/pipeline.py" inspect --target .` 결과를 보여주고 `/web-pipeline:adopt`를 안내한다.
 - 출력의 `next` 힌트, `locks`의 `alive: false` 항목(죽은 프로세스의 락 → `python -m web_pipeline locks --clear-stale`), `BLOCKED`/`DRAFT`로 되돌아간 작업의 이유를 요약한다.
 - 특정 작업의 게이트 상세가 필요하면 `python -m web_pipeline validate --task <id>`, 큐는 `python -m web_pipeline loop status`.

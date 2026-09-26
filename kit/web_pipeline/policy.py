@@ -62,14 +62,7 @@ def classify(root: Path, config: dict[str, Any], state: dict[str, Any], *, chang
     warnings: list[str] = []
     errors: list[str] = []
     paths, diff_errors = _changed_paths(root, state.get("base_ref")) if changed_paths is None else (changed_paths, [])
-    report, generated_paths = output_exclusions(root, config)
-    report_root = report + '/'
-    generated = tuple(path.rstrip("/") + "/" for path in generated_paths)
-    paths = [path for path in paths if not (
-        path.startswith(".pipeline-locks/") or path.startswith("Docs/Work/") or path.startswith('Docs/Archive/') or path.startswith(report_root)
-        or path.startswith(generated) or any(part in {"node_modules", "__pycache__", ".pytest_cache"}
-                                              for part in path.split("/"))
-    )]
+    paths = project_paths(root, config, paths)
     errors.extend(diff_errors)
     from .boundaries import classify_paths
     try:
@@ -85,12 +78,7 @@ def classify(root: Path, config: dict[str, Any], state: dict[str, Any], *, chang
     except (PipelineError, OSError, ValueError) as exc:
         errors.append(str(exc))
     risk = config["risk"]
-    for path in paths:
-        for rule in risk.get("path_rules", []):
-            if fnmatch.fnmatchcase(path, rule["pattern"]):
-                domains.update(rule.get("domains", []))
-                protected.update(rule.get("protected_changes", []))
-                tier = _max_tier(tier, rule.get("tier", "T0"))
+    tier = _apply_path_rules(risk, paths, domains, protected, tier)
     migration = state.get("migration_class", "none")
     if migration not in MIGRATION_FLOORS:
         errors.append(f"unknown migration class: {migration}")
@@ -100,7 +88,56 @@ def classify(root: Path, config: dict[str, Any], state: dict[str, Any], *, chang
         protected.add("database_schema")
     if migration in {"destructive", "irreversible"}:
         protected.add("destructive_migration")
-    # Close domain <-> protected implications to a fixed point.
+    tier = _close(risk, domains, protected, tier, errors)
+    if paths:
+        warnings.append("path rules only promote classification; semantic review is still required")
+    return {"risk_tier": tier, "change_domains": sorted(domains),
+            "protected_changes": sorted(protected), "changed_paths": paths,
+            "errors": errors, "warnings": warnings}
+
+
+def project_paths(root: Path, config: dict[str, Any], paths: list[str]) -> list[str]:
+    """Drop pipeline outputs and caches; they never change the product."""
+    report, generated_paths = output_exclusions(root, config)
+    report_root = report + '/'
+    generated = tuple(path.rstrip("/") + "/" for path in generated_paths)
+    return [path for path in paths if not (
+        path.startswith(".pipeline-locks/") or path.startswith("Docs/Work/") or path.startswith('Docs/Archive/') or path.startswith(report_root)
+        or path.startswith(generated) or any(part in {"node_modules", "__pycache__", ".pytest_cache"}
+                                              for part in path.split("/"))
+    )]
+
+
+def _apply_path_rules(risk: dict[str, Any], paths: list[str], domains: set[str], protected: set[str], tier: str) -> str:
+    for path in paths:
+        for rule in risk.get("path_rules", []):
+            if fnmatch.fnmatchcase(path, rule["pattern"]):
+                domains.update(rule.get("domains", []))
+                protected.update(rule.get("protected_changes", []))
+                tier = _max_tier(tier, rule.get("tier", "T0"))
+    return tier
+
+
+def path_risk(root: Path, config: dict[str, Any], paths: list[str]) -> dict[str, Any]:
+    """Task-free classification of changed paths for the lean workflow. A hint, not semantic proof."""
+    paths = project_paths(root, config, paths)
+    domains: set[str] = set()
+    protected: set[str] = set()
+    errors: list[str] = []
+    from .boundaries import classify_paths
+    try:
+        domains.update(classify_paths(config, paths))
+    except PipelineError as exc:
+        errors.append(str(exc))
+    risk = config["risk"]
+    tier = _apply_path_rules(risk, paths, domains, protected, "T0")
+    tier = _close(risk, domains, protected, tier, errors)
+    return {"risk_tier": tier, "change_domains": sorted(domains), "protected_changes": sorted(protected),
+            "changed_paths": paths, "errors": errors}
+
+
+def _close(risk: dict[str, Any], domains: set[str], protected: set[str], tier: str, errors: list[str]) -> str:
+    """Close domain <-> protected implications to a fixed point."""
     while True:
         before = (len(domains), len(protected))
         for domain in tuple(domains):
@@ -118,12 +155,7 @@ def classify(root: Path, config: dict[str, Any], state: dict[str, Any], *, chang
                 tier = _max_tier(tier, rule["tier"])
                 domains.update(rule.get("domains", []))
         if before == (len(domains), len(protected)):
-            break
-    if paths:
-        warnings.append("path rules only promote classification; semantic review is still required")
-    return {"risk_tier": tier, "change_domains": sorted(domains),
-            "protected_changes": sorted(protected), "changed_paths": paths,
-            "errors": errors, "warnings": warnings}
+            return tier
 
 
 def document_errors(root: Path, state: dict[str, Any], *, for_done: bool = False) -> list[str]:

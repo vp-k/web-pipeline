@@ -58,6 +58,7 @@ def main(argv=None) -> int:
     adopt.add_argument('--preview', action='store_true')
     adopt.add_argument('--domains', help='comma-separated project.supported_domains')
     adopt.add_argument('--ci', action='store_true', help='also copy the optional CI workflow')
+    adopt.add_argument('--workflow', choices=['lean', 'tracked'], help='lean (default) or tracked')
     inspect = modes.add_parser('inspect', help='read-only diagnosis of a target')
     inspect.add_argument('--target', required=True)
     upgrade = modes.add_parser('upgrade', help='managed engine preview; --apply writes with backup')
@@ -94,6 +95,7 @@ def main(argv=None) -> int:
             if args.preview: forwarded.append('--preview')
             if args.domains: forwarded += ['--domains', args.domains]
             if args.ci: forwarded.append('--ci')
+            if args.workflow: forwarded += ['--workflow', args.workflow]
         if args.mode == 'upgrade':
             if args.baseline: forwarded += ['--baseline', str(Path(args.baseline).absolute())]
             if args.apply: forwarded.append('--apply')

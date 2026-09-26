@@ -1,6 +1,6 @@
 ---
 name: web-pipeline
-description: Adopt, configure, operate or audit the Web Development Pipeline - risk tiers T0-T4, tracked tasks under Docs/Work, real verification evidence, approval gates and a durable work queue. Use when the user asks for the web pipeline explicitly, or when the repository contains pipeline.config.yaml and the request is tracked development work, verification, review, status or an engine upgrade. Not for ordinary edits in repositories that have not adopted it.
+description: Adopt, configure, operate or audit the Web Development Pipeline - lean pre-commit checks or tracked tasks under Docs/Work, risk tiers T0-T4, real verification evidence, approval gates and a durable work queue. Use when the user asks for the web pipeline explicitly, or when the repository contains pipeline.config.yaml and the request is tracked development work, verification, review, status or an engine upgrade. Not for ordinary edits in repositories that have not adopted it.
 ---
 
 # Web Development Pipeline
@@ -21,6 +21,7 @@ description: Adopt, configure, operate or audit the Web Development Pipeline - r
 | 요청 | 읽을 것 |
 | --- | --- |
 | 처음 도입, 설정 | [references/quickstart.md](references/quickstart.md), [references/adoption.md](references/adoption.md), [references/config-cookbook.md](references/config-cookbook.md) |
+| lean 모드 기능 개발 | 프로젝트의 `Docs/Runbooks/LEAN.md`, 아래 "작업 방식" 절 |
 | 작업 1건 수행·검증·재개 | 프로젝트의 `PIPELINE.md`, 해당 `Docs/Work/<TaskId>/`, [references/commands.md](references/commands.md), 예시는 [references/worked-example.md](references/worked-example.md) |
 | 큐로 계속 개발 | [references/continuous.md](references/continuous.md) |
 | 보호 변경·T3/T4·예외·Release 승인 | [references/approvals.md](references/approvals.md) |
@@ -30,6 +31,23 @@ description: Adopt, configure, operate or audit the Web Development Pipeline - r
 | 리뷰·감사 | 상태·설정·보존된 증거를 **읽기만** 한다. 리뷰 요청은 도입·수정·상태 전이·새 검증·아카이브·배포 권한이 아니다 |
 
 도메인 작업 전에는 그 도메인의 프로젝트 런북(`Docs/Runbooks/FRONTEND|BACKEND|API|DATABASE|SECURITY|BOUNDARIES.md`)만 읽는다. 무관한 런북을 전부 읽지 않는다. 시작은 항상 `python -m web_pipeline status`.
+
+## 작업 방식 (workflow)
+
+`status`의 `workflow` 값을 먼저 본다. 값이 없으면 `tracked`다.
+
+**lean** (새 도입 기본값):
+
+1. 사용 가능한 기능 하나가 작업 단위다. 스키마, 시드, 타입, API, UI를 따로 쪼개지 않는다.
+2. 테스트는 구현과 함께 쓴다.
+3. 커밋 전마다 `python -m web_pipeline check`를 돌린다. 실패하면 먼저 고친다.
+4. 기능마다 `pipeline-reviewer`로 새 컨텍스트 리뷰를 한 번 받는다.
+5. 커밋 메시지 본문에 check 출력의 `commit_table`을 넣는다.
+6. check의 `decisions`에 있는 스키마, 인증, 개인정보, 보안 결정은 한 번에 묶어 묻는다. 답은 커밋 메시지에 남긴다.
+7. `tracked_required: true`거나 결제, 배포, Release, 운영 작업이면 추적 task를 쓴다.
+8. `Docs/Work` 폴더와 절차 메모를 만들지 않는다.
+
+**tracked**: 모든 변경이 `Docs/Work/<TaskId>/` task다. 아래 작업 리듬과 절대 규칙을 따른다.
 
 ## 제품 작업 우선
 
@@ -46,6 +64,8 @@ description: Adopt, configure, operate or audit the Web Development Pipeline - r
 5. 진행 보고는 완성한 기능과 실제 검사 결과로 한다. 명령을 몇 번 돌렸는지는 성과가 아니다.
 
 ## 절대 규칙
+
+절대 규칙 1, 2는 추적 task에 적용한다. 나머지는 두 모드 모두에 적용한다.
 
 1. 상태의 주인은 `Docs/Work/<TaskId>/STATE.md`와 엔진 전이뿐이다. 상태·실행 포인터·카운터를 손으로 고쳐 게이트를 통과하지 않는다.
 2. 변경 **전에** Baseline을 잡는다. `PASS`, `FAIL`, `NOT_RUN`, `BLOCKED`, `NOT_APPLICABLE`, `INCONCLUSIVE`는 서로 다른 뜻이며 PASS만 PASS다.

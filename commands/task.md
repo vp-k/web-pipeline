@@ -7,6 +7,8 @@ argument-hint: "<what to build or fix> | <existing TaskId>"
 
 요청: `$ARGUMENTS`
 
+`workflow: lean` 프로젝트에서 이 명령은 T4 작업이나 사용자가 추적 기록을 요청한 작업에만 쓴다. 일반 기능은 `/web-pipeline:check` 흐름으로 한다.
+
 `web-pipeline` 스킬을 불러오고 `references/commands.md`의 최소 명령 순서를 따른다. 모든 명령은 프로젝트 루트에서 `python -m web_pipeline <command>`로 실행한다 (플러그인에 든 엔진이 아니라 **프로젝트 로컬 엔진**).
 
 1. `python -m web_pipeline status` — 준비 상태, 진행 중인 작업, 잡힌 락을 먼저 본다. 인자가 기존 TaskId면 그 작업을 이어서 하고, 새로 만들지 않는다.

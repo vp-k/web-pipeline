@@ -6,6 +6,10 @@ An adopted project starts with `project.mode: "project"` and `project.ready: fal
 
 Requirements name command IDs by domain and profile. Development readiness requires enabled Policy/Baseline/Fast/Full checks for supported domains. Release-only definitions may remain disabled until Release is requested; the Release runner reports them NOT_RUN and cannot grant readiness. Release inherits Full. A missing or disabled requirement is NOT_RUN and fails the profile. Production commands are forbidden: Release establishes readiness only.
 
+## Workflow
+
+`workflow` is `lean` or `tracked`. New adoption sets `lean`; `adopt --workflow tracked` keeps a task per change. A missing value means `tracked`, so projects adopted before 2.14 keep their behavior. Lean uses `check` before each commit and tracked tasks only for T4 work; see [LEAN.md](LEAN.md). Switching is a config edit. Tracked tasks already under `Docs/Work` remain valid in either mode.
+
 ## Approval policy
 
 New adoption sets `approval_policy: "standard"`:

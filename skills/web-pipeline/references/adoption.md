@@ -30,6 +30,7 @@
 
 - 6개 소스 문서(`sources`), 지원 도메인, **실제로 실행해 본** argv 명령, 경로 규칙, Git 비교 기준(`base_ref`)을 채운다.
 - 항상 통과하는 가짜 명령으로 실제 테스트를 대신하지 않는다. 테스트 0건, 비활성화된 필수 check는 커버리지가 아니다.
+- 새 도입은 `workflow: lean`이다. 커밋 전 `check`로 검사하고 T4 작업만 추적 task로 한다. 모든 변경을 task로 관리하려면 `adopt --workflow tracked`.
 - 새 도입은 `approval_policy: standard`다. standard에서 사람 이름·신원·trust 파일을 요구하지 않는다. 보호 변경·T3/T4 결정은 사용자 영수증([approvals.md](approvals.md))으로 처리한다.
 - 프론트/백엔드/API 경계가 있으면 설정 전에 프로젝트의 `Docs/Runbooks/BOUNDARIES.md`를 읽는다. 허용된 import와 금지된 import를 각각 한 번씩 실제로 검사해 어댑터가 동작함을 확인한다. `NOT_CONFIGURED`를 PASS로 보고하지 않는다.
 - 순서: DRAFT 작업 생성 → 실제 명령 커버리지 확립 → 설정이 끝났을 때만 `ready: true` → `validate`. **프로젝트 준비(`ready`)와 작업의 READY는 다른 것이다.**

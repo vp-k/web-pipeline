@@ -85,6 +85,16 @@ test report 의 test status: `passed` `failed` `error` `skipped`.
 | strict policy | 모든 승인이 Ed25519 서명 + 프로젝트 외부 trust 파일(`--trust`/`WEB_PIPELINE_TRUST`). `approval_policy` 누락 시 기본값 |
 | receipt | `USER_APPROVAL-<hash>.json`. task/revision/fingerprint(+review·release 는 tree digest, run id, run digest)에 묶인 사용자 동의 전사본 |
 
+## Workflow
+
+| 토큰 | 의미 |
+|---|---|
+| `lean` | 커밋 전 `check`와 기능별 리뷰로 진행. T4 작업만 추적 task. 새 도입 기본값 |
+| `tracked` | 모든 변경이 `Docs/Work` task. `workflow` 누락 시 기본값 |
+| `tracked_required` | `check` 출력. 변경 경로가 T4로 분류됨 |
+| `decisions` | `check` 출력. 변경 경로가 가리키는 보호 변경 목록 |
+| `commit_table` | `check` 출력. 커밋 메시지용 check 결과 표 |
+
 ## Boundary / scope / legacy
 
 | 토큰 | 의미 |

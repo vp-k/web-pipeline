@@ -6,6 +6,7 @@
   "properties": {
     "boundaries": {"type": "object"},
     "approval_policy": {"enum": ["standard", "strict"]},
+    "workflow": {"enum": ["lean", "tracked"]},
     "schema_version": {
       "const": "2.0"
     },

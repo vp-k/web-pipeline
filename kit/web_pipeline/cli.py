@@ -74,6 +74,11 @@ def _parser() -> argparse.ArgumentParser:
     init.add_argument('--preview', action='store_true', help='list conflicts without writes')
     init.add_argument('--domains', help='comma-separated supported domains (default: all)')
     init.add_argument('--ci', action='store_true', help='also write .github/workflows/project-policy.yml')
+    init.add_argument('--workflow', choices=['lean', 'tracked'], default='lean',
+                      help='lean: check before each commit, tracked tasks only when needed (default); tracked: every change is a task')
+    check = commands.add_parser('check', help='lean workflow: run enabled checks on the working tree without a task')
+    check.add_argument('--profile', choices=['Fast', 'Full'], default='Full')
+    check.add_argument('--base-ref', default='HEAD', help='changed paths are compared with this revision (default: HEAD)')
     status = commands.add_parser('status', help='read-only summary: readiness, tasks, locks, queue and next step')
     status.add_argument('--task')
     locks = commands.add_parser('locks', help='list operation locks; --clear-stale removes those whose process is gone')
@@ -140,7 +145,7 @@ def _merged_gitignore(source: Path, target: Path) -> str | None:
     return head + ('\n# web pipeline\n' if current else '') + '\n'.join(missing) + '\n'
 
 
-def _init(source: Path, target: Path, preview=False, domains=None, ci=False) -> dict:
+def _init(source: Path, target: Path, preview=False, domains=None, ci=False, workflow='lean') -> dict:
     """Adopt the engine into a project: engine files must be new, shared project files are merged, the rest is preserved."""
     from .maintenance import MANAGED, location, receipt, RECEIPT
     from .common import atomic_json, atomic_text, safe_path
@@ -188,12 +193,13 @@ def _init(source: Path, target: Path, preview=False, domains=None, ci=False) -> 
         atomic_text(target / '.gitignore', ignore); merged.append('.gitignore')
     config["project"]["mode"] = "project"
     config["project"]["ready"] = False
+    config['workflow'] = workflow
     if domains: config['project']['supported_domains'] = list(dict.fromkeys(domains))
     (target / "pipeline.config.yaml").write_text(json.dumps(config, indent=2, ensure_ascii=False) + "\n", encoding="utf-8", newline='\n')
     atomic_json(target / RECEIPT, receipt(source))  # Only files this adoption installed; project scripts stay project-owned.
     written = sorted(dst.relative_to(target).as_posix() for _, dst in engine + seeds)
     return {"status":"PASS", "target":str(target), "files_copied":len(written), "written":written, "merged":merged,
-            "preserved":preserved, "ready":False,
+            "preserved":preserved, "ready":False, "workflow":workflow,
             "next":"Install requirements-pipeline.txt, then configure sources, Git/base refs and real checks before project.ready=true. "
                    "Standard uses local reviews and scoped user receipts without identity/trust; strict keeps signatures."}
 
@@ -202,6 +208,7 @@ def _status(root: Path, task_id=None) -> dict:
     """Read-only orientation for a new session. Never raises for an unadopted or not-ready project."""
     from .common import held_locks, safe_path
     from .maintenance import version
+    from .lean import workflow
     if not (root / 'pipeline.config.yaml').is_file():
         return {'adopted':False, 'root':str(root), 'next':'No pipeline.config.yaml here: adopt the pipeline first (adopt --preview, then adopt).'}
     result: dict = {'adopted':True, 'root':str(root), 'writes':False}
@@ -211,6 +218,7 @@ def _status(root: Path, task_id=None) -> dict:
         return {**result, 'config_error':str(exc), 'next':'Fix pipeline.config.yaml (Docs/Runbooks/CONFIGURATION.md), then run validate.'}
     project = config['project']
     result.update(engine_version=version(root), mode=project['mode'], ready=bool(project.get('ready')),
+                  workflow=workflow(config),
                   approval_policy=config.get('approval_policy', 'strict'),
                   enabled_checks=[c['id'] for c in config['verification']['commands'] if c['enabled']])
     tasks, broken = [], []
@@ -241,6 +249,9 @@ def _status(root: Path, task_id=None) -> dict:
     elif stale: hint = 'Stale locks (' + ', '.join(stale) + ') are reclaimed automatically; locks --clear-stale removes them now.'
     elif result.get('queue', {}).get('status') in {'BUSY', 'PAUSED_LIMIT'}: hint = 'A queue is active: loop status, then loop next.'
     elif open_tasks: hint = 'Continue ' + ', '.join(f"{item['task_id']} ({item['status']})" for item in open_tasks[:5]) + '.'
+    elif result['workflow'] == 'lean':
+        hint = ('Lean workflow: build one feature with its tests, run check before each commit and get one review. '
+                'Use a tracked task (new ...) only for payment, deployment, release or production work.')
     else: hint = 'No open task: create one with new --task <TaskId> --title ... --domains ...'
     result['next'] = hint
     return result
@@ -271,7 +282,11 @@ def dispatch(args: argparse.Namespace) -> dict[str, Any]:
             return autopilot.reconcile(root, args.task, args.reason)
         return autopilot.retry(root, args.task, args.reason)
     if args.command == "init":
-        return _init(Path(__file__).resolve().parents[1], Path(args.target), args.preview, _csv(args.domains) or None, args.ci)
+        return _init(Path(__file__).resolve().parents[1], Path(args.target), args.preview, _csv(args.domains) or None, args.ci,
+                     args.workflow)
+    if args.command == 'check':
+        from .lean import check
+        return check(root, args.profile, args.base_ref)
     if args.command == 'status': return _status(root, args.task)
     if args.command == 'locks':
         from .common import held_locks
@@ -342,7 +357,7 @@ def main(argv: list[str] | None = None) -> int:
         print(json.dumps(result,indent=2,sort_keys=True,ensure_ascii=False))
         if args.command == 'clarification-report':
             return 0 if result['result'] == 'CLEAR' else 1
-        if isinstance(result,dict) and "status" in result and args.command in {"validate","run"}:
+        if isinstance(result,dict) and "status" in result and args.command in {"validate","run","check"}:
             return 0 if result["status"] == "PASS" else 1
         # `loop status` is a read-only query; only actions signal "no work handed out" through the exit code.
         if args.command == 'loop' and args.loop_command != 'status' and result.get('status') in {'WAITING', 'BUSY', 'PAUSED_LIMIT', 'FAIL'}:

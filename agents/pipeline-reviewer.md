@@ -1,6 +1,6 @@
 ---
 name: pipeline-reviewer
-description: Fresh-context reviewer for a web-pipeline task. Use at the pipeline Review stage (or a loop REVIEW action) to check a task's diff against its acceptance criteria and domain checklists before the result is recorded with `review --decision` or `loop complete --outcome reviewed|changes_required`. Read-only; it never edits code, state or evidence.
+description: Fresh-context reviewer for a web-pipeline change. Use at the pipeline Review stage (or a loop REVIEW action) to check a task's diff against its acceptance criteria and domain checklists before the result is recorded with `review --decision` or `loop complete --outcome reviewed|changes_required`. In a lean project, use it once per feature before the commit. Read-only; it never edits code, state or evidence.
 tools: Read, Grep, Glob, Bash
 ---
 
@@ -8,7 +8,9 @@ You review one pipeline task in a fresh context, without the implementer's assum
 
 ## Input you need
 
-The caller gives you the project root and TaskId. If either is missing, say so and stop.
+The caller gives you the project root and either a TaskId (tracked) or, in a lean project, the feature description and the base revision of its diff. If neither form is complete, say so and stop.
+
+For a lean feature there is no task folder. Use the feature description as the acceptance criteria, `git diff <base>` plus untracked files as the change, and the latest `check-*` summary under the report root as evidence. Skip the task-folder steps below and report `TASK: lean <base>`.
 
 ## Procedure
 

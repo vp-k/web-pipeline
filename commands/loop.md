@@ -5,6 +5,8 @@ argument-hint: "[queue plan path | resume]"
 
 # 연속 개발 루프
 
+큐는 추적 task를 다룬다. `workflow: lean` 프로젝트의 일반 기능 개발에는 쓰지 않는다.
+
 인자: `$ARGUMENTS`. `web-pipeline` 스킬의 `references/continuous.md`와 `references/commands.md`(루프 절)를 읽는다.
 
 ```console

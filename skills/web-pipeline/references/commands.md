@@ -3,6 +3,26 @@
 모든 프로젝트 명령은 프로젝트 루트에서 `python -m web_pipeline <command>` 로 실행한다 (`--root` 기본값 `.`).
 출력은 stdout JSON. 실패는 stderr `{"status":"FAIL","error":"..."}` + exit 1. 인자 오류(argparse)는 exit 2.
 
+## 0. lean 모드: check
+
+`workflow: lean` 프로젝트의 기본 명령이다. task 없이 작업 트리를 검사한다.
+
+```console
+python -m web_pipeline check                  # 커밋 전. Full 프로필 check
+python -m web_pipeline check --profile Fast   # 구현 중 반복
+python -m web_pipeline check --base-ref main  # 변경 경로 비교 기준. 기본 HEAD
+```
+
+| 출력 키 | 뜻 |
+|---|---|
+| `status` | 모든 check PASS면 `PASS`. 아니면 `FAIL`이고 exit 1 |
+| `commit_table` | 커밋 메시지에 넣는 check별 결과 표 |
+| `decisions` | 변경 경로가 가리키는 보호 변경. 사용자 결정이 필요하다 |
+| `tracked_required` | 변경 경로가 T4. 추적 task로 옮긴다 |
+| `evidence` | 로그와 `summary.json`이 있는 보고서 폴더 |
+
+check는 준비된 프로젝트에서만 돈다. `Docs/Work`에 아무것도 만들지 않고 승인을 기록하지 않는다.
+
 ## 1. Task 상태 다이어그램
 
 ```
