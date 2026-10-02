@@ -1,6 +1,11 @@
 # web-pipeline
 
-Claude Code 플러그인 **`web-pipeline`**: 웹 프로젝트에 위험 등급(T0–T4), 추적되는 작업(`Docs/Work/<TaskId>/`), 실제 검증 증거, 승인 게이트, 내구성 있는 작업 큐를 도입·운영하는 파이프라인 엔진과 그 운용 스킬.
+Claude Code 플러그인 **`web-pipeline`**: 웹 프로젝트에서 기능을 먼저 만들고, 커밋 전에 실제 검사로 문제를 잡는 파이프라인 엔진과 그 운용 스킬.
+
+- 기본 흐름은 `lean`이다. 기능 하나를 테스트와 함께 만들고 `check`를 돌린 뒤 리뷰 한 번을 거쳐 커밋한다.
+- `check`는 켜진 실제 검사를 돌린다. 켜지지 않은 검사, 줄어든 검사, 의존성 변경은 결과에 남긴다.
+- 인증, 결제, 스키마, 비밀 값처럼 위험한 경로는 위험 등급(T0–T4)으로 올려 사용자 결정을 받는다.
+- 추적 작업(`Docs/Work/<TaskId>/`), 승인 게이트, 작업 큐는 T4와 Release 같은 작업에 쓴다.
 
 - 엔진은 **프로젝트 안에 복사**된다(`python -m web_pipeline …`). 플러그인이 새 버전이 되어도 프로젝트의 엔진은 명시적 `upgrade` 전까지 바뀌지 않는다.
 - 플러그인 자체는 도입·진단·업그레이드·복원만 담당한다(`scripts/pipeline.py`).
@@ -14,7 +19,7 @@ Claude Code 플러그인 **`web-pipeline`**: 웹 프로젝트에 위험 등급(T
 
 요구 사항: Python 3.11+, Git, 그리고 도입된 프로젝트에 `requirements-pipeline.txt`(`jsonschema`, `cryptography`, `Pillow`).
 
-2.12.0은 반복 승인 질문·누적 시간 중단·개발 전 Release 설정 부담을 줄였다. [점검 결과](docs/FRICTION_AUDIT.md)와 [제품 우선 도입 기준](skills/web-pipeline/references/product-first.md)을 참고한다. 기존 프로젝트는 관리형 업그레이드 전까지 이전 엔진과 설정을 유지한다.
+2.15.0부터 lean 프로젝트는 켜진 검사로 바로 시작한다. 경로 규칙은 단어 단위로 위험 경로를 잡는다. [제품 우선 도입 기준](skills/web-pipeline/references/product-first.md)을 참고한다. 기존 프로젝트는 관리형 업그레이드 전까지 이전 엔진과 설정을 유지한다. 업그레이드 뒤 설정 이전은 `/web-pipeline:upgrade` 안내를 따른다.
 
 ## 구성
 

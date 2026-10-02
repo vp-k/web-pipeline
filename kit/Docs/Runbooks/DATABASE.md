@@ -5,8 +5,10 @@ For database and schema changes:
 Read [BOUNDARIES.md](BOUNDARIES.md) and [DATA_CONTRACT.md](../Architecture/DATA_CONTRACT.md).
 The `database` domain has a T2 floor. Declare the migration class on the task
 (`new --migration <class>`); the engine raises the tier to the class floor and adds
-the protected changes below. Path rules promote `*migration*` and `*.sql` to
-`database_schema` (T3) regardless of the declared class.
+the protected changes below. Path rules promote migration paths, `*.sql` outside seed
+and fixture paths, `*.prisma` and `schema.rb` to `database_schema` (T3) regardless of
+the declared class. Seed and fixture changes raise a notice: confirm they hold no real
+personal data.
 
 | Migration class | Tier floor | Protected changes | Implication |
 |---|---|---|---|

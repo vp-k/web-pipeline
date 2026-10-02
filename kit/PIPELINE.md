@@ -8,7 +8,7 @@ Start every session with `python -m web_pipeline status`. It is read-only and re
 
 `workflow` in `pipeline.config.yaml` selects how ordinary changes are tracked. A missing value means `tracked`.
 
-- `lean`: follow [LEAN.md](Docs/Runbooks/LEAN.md). Build one feature with its tests, run `python -m web_pipeline check` before each commit, get one fresh-context review and put the check table in the commit message. Do not create `Docs/Work` tasks for ordinary work.
+- `lean`: follow [LEAN.md](Docs/Runbooks/LEAN.md). Build one feature with its tests, run `python -m web_pipeline check` before each commit, get one fresh-context review and put the check table in the commit message. Do not create `Docs/Work` tasks for ordinary work. Lean starts with the checks that are enabled and reports the rest as `missing_checks`.
 - `tracked`: every change is a task under `Docs/Work` and follows the Flow below.
 - In both modes, payment, deployment, release, production operations and destructive migrations use a tracked task.
 - Rules 4 to 9 below apply in both modes. Rules 1 to 3, rule 10 and the Flow apply to tracked tasks.
@@ -63,8 +63,9 @@ Use `PLAN.md` for T2 work and a living `EXEC_PLAN.md` for T3/T4 or multi-milesto
 
 ## Required reading by domain
 
-- Always: `Docs/Governance/00_OPERATING_MODEL.md`, `RISK_CLASSIFICATION.md`, `VERIFICATION_POLICY.md`.
-- Protected or T3/T4: `PROTECTED_CHANGES.md`, `APPROVAL_GATES.md`, `ROLE_MODEL.md`.
+- Lean: `Docs/Runbooks/LEAN.md`, then only the domain runbooks below that the feature touches.
+- Tracked tasks: `Docs/Governance/00_OPERATING_MODEL.md`, `RISK_CLASSIFICATION.md`, `VERIFICATION_POLICY.md`.
+- Protected or T3/T4 tracked tasks: `PROTECTED_CHANGES.md`, `APPROVAL_GATES.md`, `ROLE_MODEL.md`.
 - Frontend: `Docs/Runbooks/FRONTEND.md`. Backend: `Docs/Runbooks/BACKEND.md`. Database: `Docs/Runbooks/DATABASE.md`.
 - Frontend/backend/API boundaries or adoption: `Docs/Runbooks/BOUNDARIES.md`. API or external integration: `Docs/Runbooks/API.md`.
 - Authentication, authorization, security or privacy: `Docs/Runbooks/SECURITY.md`.

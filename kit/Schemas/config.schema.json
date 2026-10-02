@@ -244,6 +244,19 @@
             "additionalProperties": false,
             "properties": {
               "pattern": {
+                "oneOf": [
+                  {"type": "string", "minLength": 1},
+                  {"type": "array", "minItems": 1, "items": {"type": "string", "minLength": 1}}
+                ]
+              },
+              "match": {
+                "enum": ["glob", "path", "name", "word"]
+              },
+              "except": {
+                "type": "array",
+                "items": {"type": "string", "minLength": 1}
+              },
+              "notice": {
                 "type": "string",
                 "minLength": 1
               },

@@ -7,7 +7,7 @@ The `authentication`, `authorization`, `security` and `privacy` domains have a T
 floor; the protected changes `authentication`, `authorization_rbac`, `session_cookie`,
 `csrf_cors_csp`, `encryption` and `personal_data_pii` are T3, and `secrets_credentials`
 is T4. Declare them on the task (`new --protected ...`) even when no path rule fires;
-path rules (`*auth*`, `*session*`, `*.env*`, `*secret*`) only promote, never exempt.
+path rules (auth, login, session and secret words, `.env` and key files) only promote, never exempt.
 
 1. Identify the trust boundary of every changed input: which values come from the
    browser, a third party or another service, and which are established server-side.
@@ -22,10 +22,11 @@ path rules (`*auth*`, `*session*`, `*.env*`, `*secret*`) only promote, never exe
    private keys and keystores; a check that prints a credential into
    `PIPELINE_EVIDENCE_DIR` has leaked it. Use non-production credentials for every
    verification environment.
-5. Treat dependency and lockfile changes as security work: `*.lock`, `*-lock.json`,
-   `*-lock.yaml`, `*.lockb`, `*npm-shrinkwrap.json`, `*go.sum`, `*go.mod`,
-   `*package.json` and `requirements*.txt` classify as `major_framework_sdk` (T3).
-   Review the upstream change, not only the version bump.
+5. Review dependency and lockfile changes as security work. Manifests and lockfiles
+   (`package.json`, `*-lock.json`, `*.lock`, `go.sum`, `requirements*.txt` and
+   similar) raise a dependency notice. Check each added or upgraded package and the
+   upstream change, not only the version bump. Declare a major framework or SDK
+   upgrade as `major_framework_sdk`.
 6. Run the domain's required checks: `security` (and `secret-detection` for
    `secrets_credentials`), plus `session-tests` and `authorization-tests` for
    authentication work. A missing or disabled required check fails the profile.

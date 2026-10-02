@@ -59,13 +59,14 @@ B=Baseline, F=Fast, U=Full, R=Release(Release 실행은 Full 목록을 포함). 
 
 ## 3. 활성화 규칙
 
-`ready: true` 프로젝트는 설정 로드 때마다 검사하고, 어기면 모든 명령이 실패한다.
+`ready: true` 프로젝트는 설정 로드 때마다 검사한다. 어기면 모든 명령이 실패한다.
 
-- `policy_checks` 전부, 그리고 `supported_domains` 각 도메인의 **Baseline·Fast·Full 세 목록의 모든 id** 가 `enabled: true` + 비어 있지 않은 `argv` + 존재하는 `cwd` 여야 한다(`Required project command <id> is disabled`). Release 전용 check는 일반 개발 준비를 막지 않는다. 정의와 프로필의 구조는 검사하며, 실제 Release 실행에서는 빠지거나 비활성인 check가 NOT_RUN으로 남아 통과하지 못한다.
+- `tracked` 프로젝트는 `policy_checks` 전부와 `supported_domains` 각 도메인의 **Baseline·Fast·Full 세 목록의 모든 id** 가 켜져 있어야 한다. `enabled: true`, 비어 있지 않은 `argv`, 존재하는 `cwd` 가 조건이다. 어기면 `Required project commands are disabled: <ids>` 로 실패한다. Release 전용 check는 일반 개발 준비를 막지 않는다. 실제 Release 실행에서는 빠지거나 비활성인 check가 NOT_RUN으로 남아 통과하지 못한다.
+- `lean` 프로젝트는 켜진 check 로 시작한다. 켜지지 않은 필수 id 는 `status` 와 `check` 의 `missing_checks` 로 보고되고, `check` 표에 `Not enabled` 줄로 남는다. 실행할 실제 check 가 하나도 없으면 `check` 가 FAIL 한다.
 - `requirements` 는 12개 도메인 키를 전부 유지한다. 목록의 id 는 정의돼 있고 그 프로필을 `profiles` 에 포함해야 한다. `policy_checks` 의 id 는 `Policy` 프로필 필수.
 - 실행 시 필요한 check 가 disabled/미정의면 `NOT_RUN` → run FAIL.
 
-순서: (1) `supported_domains` 를 실제 범위로 좁힌다 → (2) 그 도메인의 필수 id 를 표에서 뽑는다 → (3) 도구가 있는 id 는 배선한다 → (4) 도구가 **없는** id 는 사용자와 합의해 그 도메인의 `requirements` 와 `policy_checks` 에서 빼고 보고한다. 추가는 자유다. `supported_domains` 밖이라도 path rule 이 도메인을 붙이면 그 check 가 요구된다. 예: `package.json`·lock 파일 변경 → `security` + `major_framework_sdk`(T3) → `security`, `dependency-audit`, `integration`, `build` 필요.
+순서: (1) `supported_domains` 를 실제 범위로 좁힌다 → (2) 그 도메인의 필수 id 를 표에서 뽑는다 → (3) 도구가 있는 id 는 배선한다 → (4) 도구가 **없는** id 는 사용자와 합의해 그 도메인의 `requirements` 와 `policy_checks` 에서 빼고 보고한다. 추가는 자유다. `supported_domains` 밖이라도 path rule 이 도메인을 붙이면 그 check 가 요구된다. 예: `src/auth/*` 변경은 `authentication` 도메인의 check 를 요구한다. `package.json`·lock 파일 변경은 도메인을 붙이지 않고 `notices` 로만 알린다.
 
 `test_report`(선택)는 exit code 대신 케이스별 판정을 강제한다. 받는 형식은 **엔진 JSON(`Schemas/test-results.schema.json`) 하나뿐**이다. JUnit XML, Jest/Vitest/pytest 기본 JSON 은 받지 않는다. 커스텀 reporter 가 `$PIPELINE_EVIDENCE_DIR/<path>` 에 직접 쓴다:
 
@@ -179,7 +180,7 @@ B=Baseline, F=Fast, U=Full, R=Release(Release 실행은 Full 목록을 포함). 
 - `--project <name>` 은 Vitest `projects` 의 이름. Jest 는 suite 별 설정 파일: `["npx","jest","--config","jest.integration.config.js"]`. NestJS 빌드는 `["npx","nest","build"]`.
 - `integration` 은 `@testcontainers/postgresql` 로 **실제 Postgres** 를 띄우고 **실제 마이그레이션**을 적용한 뒤 테스트한다. mock·SQLite·schema sync 대체 금지. Docker 가 없으면 FAIL 로 보고하고 목록에서 빼지 않는다.
 - `tools/*.mjs` 는 프로젝트가 작성해 리뷰하는 스크립트. `smoke.mjs`: 빌드 산출물을 비운영 설정으로 기동 → health/핵심 경로 호출 → 종료. `migrate-dry-run.mjs`: 일회용 컨테이너에 전체 마이그레이션 적용. `contract-compat.mjs`: `base_ref` 의 계약 파일과 현재 파일의 브레이킹 변경 비교.
-- 위 패치는 소비자가 없어 `contract-consumer` 를, 도구가 없어 `rollback-validation`·`restore-validation`·`security`·`performance` 를 뺀 상태다. `*.sql`·`*migration*` 경로는 T3 `database_schema` 로 승격되어 `rollback-validation` 을 요구하므로 마이그레이션을 다루기 전에 배선한다.
+- 위 패치는 소비자가 없어 `contract-consumer` 를, 도구가 없어 `rollback-validation`·`restore-validation`·`security`·`performance` 를 뺀 상태다. `.sql` 파일과 `migration` 단어가 든 경로는 T3 `database_schema` 로 승격되어 `rollback-validation` 을 요구하므로 마이그레이션을 다루기 전에 배선한다.
 
 ### (d) FastAPI/Django + pytest, ruff, mypy
 
@@ -380,22 +381,52 @@ scopes:
 
 ## 6. `risk.path_rules` 조정
 
-- 매칭은 저장소 상대 경로 **전체**에 대한 대소문자 구분 `fnmatch`. `*` 는 `/` 를 넘는다. 기본 rule 상당수가 넓은 부분 문자열이다: `*auth*` 는 `src/pages/authors.tsx` 도 T3 `authentication` 으로, `*session*`·`*secret*`·`*payment*`·`*wallet*`·`*migration*`·`*webhook*`·`*.env*` 도 같은 식으로 올린다. 잠금 파일은 실제 파일명 패턴(`*.lock`, `*-lock.json`, `*-lock.yaml`, `*.lockb`, `*npm-shrinkwrap.json`, `*go.sum`, `*go.mod`)만 잡으므로 `BlockList.tsx`·`useClock.ts` 는 승격되지 않는다.
-- rule 은 **승격만** 한다: 매칭된 rule 의 tier 최댓값, domains·protected_changes 합집합. 좁은 rule 을 더해도 넓은 rule 의 효과는 사라지지 않는다. 오탐을 없애려면 넓은 rule 자체를 정확한 rule 로 **교체**해야 하고, 이는 보호를 줄이는 결정이므로 사용자 승인 대상이다. 확신이 없으면 넓은 채로 두고 높은 tier 를 받아들인다.
+rule 하나는 `pattern`, `match`, 선택적인 `except`, `notice` 를 가진다. `pattern` 은 문자열 하나 또는 목록이다.
+
+| `match` | 비교 대상 | 대소문자 | 예 |
+|---|---|---|---|
+| `word` | 경로를 단어로 쪼갠 각 단어 | 무시 | `auth` 는 `useOAuth.ts`, `auth_guard.py` 에 맞고 `AuthorCard.tsx` 에는 안 맞는다 |
+| `name` | 파일 이름 | 무시 | `*.prisma`, `.env.*`, `Dockerfile*` |
+| `path` | 저장소 상대 경로 전체 | 무시 | `app/api/*`, `.github/workflows/*` |
+| `glob` | 저장소 상대 경로 전체 | 구분 | `match` 가 없는 예전 rule 의 기본값 |
+
+- `word` 는 camelCase, 숫자, `_`, `-`, `.`, `/` 경계로 단어를 나눈다. 붙은 두 단어도 한 단어로 본다. 그래서 `SignIn` 은 `signin` 에도 맞는다. `*` 는 단어 안에서만 쓴다. `session*` 은 `sessions`, `SessionStore` 에 맞는다.
+- `except` 는 같은 `match` 방식으로 제외할 패턴이다. 기본 `.sql` rule 은 `*seed*`, `*fixture*` 를 뺀다.
+- `notice` 는 tier 를 올리지 않고 `check` 와 `classify` 경고에 문장 하나를 남긴다. 리뷰가 확인할 항목이다.
+- `*` 는 `/` 를 넘는다. `path`·`glob` 의 `app/api/*` 는 하위 경로 전체에 맞는다.
+
+기본 rule 의 뜻:
+
+| 대상 | 결과 |
+|---|---|
+| 인증·세션·권한·CSRF·암호화 단어 | T3 와 해당 보호 변경 |
+| 결제·지갑 단어 | T4 |
+| 마이그레이션 단어, `*.sql`, `*.prisma`, `schema.rb` | T3 `database_schema` |
+| OpenAPI·GraphQL·proto, 웹훅 단어 | T3 공개 계약 |
+| Terraform, Dockerfile, compose, CI workflow, 배포 설정 | T3 `infrastructure` |
+| `.env`, `.env.*`, 키 파일, `secret` 단어 | T4 `secrets_credentials`. `.env.example` 등 템플릿은 제외 |
+| 의존성 manifest·lock 파일 | T0 와 의존성 notice |
+| seed·fixture 단어, `.env` 류 | notice |
+| `pipeline.config.yaml` | T0 와 설정 notice |
+| `web_pipeline/*`, `Scripts/*` | T3 `core_architecture` |
+| `app/api/*`, `pages/api/*`, `server/*`, `.go`·`.php`·`.rb`·`.java`·`.kt` | `backend` |
+| `.tsx`·`.jsx`·`.vue`·`.svelte`·`.astro`, 스타일 파일 | `frontend` |
+
+- rule 은 **승격만** 한다. 매칭된 rule 의 tier 최댓값과 domains·protected_changes 합집합을 쓴다. 좁은 rule 을 더해도 넓은 rule 의 효과는 사라지지 않는다.
+- 오탐을 없애려면 넓은 rule 을 정확한 rule 로 **교체**한다. 이는 보호를 줄이는 결정이므로 사용자 승인 대상이다. lean `check` 는 보호 rule 이 빠지거나 바뀌면 `weakened_checks` 로 보고한다.
 - 프로젝트 구조에 맞는 정확한 rule 을 추가한다(append):
 
 ```json
 {
   "risk.path_rules": [
-    {"pattern": "backend/src/modules/auth/*", "domains": ["authentication"], "protected_changes": ["authentication"], "tier": "T3"},
-    {"pattern": "backend/prisma/migrations/*", "domains": ["database"], "protected_changes": ["database_schema"], "tier": "T3"},
-    {"pattern": "contracts/*", "domains": ["api"], "protected_changes": [], "tier": "T2"},
-    {"pattern": "backend/src/*.ts", "domains": ["backend"], "protected_changes": [], "tier": "T1"},
-    {"pattern": "frontend/src/*.ts", "domains": ["frontend"], "protected_changes": [], "tier": "T1"}
+    {"pattern": "backend/src/modules/auth/*", "match": "path", "domains": ["authentication"], "protected_changes": ["authentication"], "tier": "T3"},
+    {"pattern": ["tenant", "tenants"], "match": "word", "domains": ["authorization"], "protected_changes": ["authorization_rbac"], "tier": "T3"},
+    {"pattern": "contracts/*", "match": "path", "domains": ["api"], "protected_changes": [], "tier": "T2"},
+    {"pattern": ["*.ts", "*.js"], "match": "name", "domains": ["backend"], "protected_changes": [], "tier": "T1"}
   ]
 }
 ```
 
-- 기본 확장자 rule 은 `*.tsx`, `*.vue`, `*.css`, `*.go`, `*.php` 뿐이다. `.ts`, `.js`, `.py`, `.svelte`, `.astro` 소스는 위처럼 rule 을 더해야 diff 만으로 도메인이 잡힌다. rule 이 없어도 `new --domains` 로 선언한 도메인은 유지된다.
-- `protected_changes` 값은 `risk.protected_rules` 의 키여야 한다. 공개 API·웹훅 계약의 실제 위치에는 `public_api_contract`/`webhook_contract` rule 을 둔다.
-- `pipeline.config.yaml` 자체가 rule 대상이다(`infrastructure` + `core_architecture`, T3). `ready: true` 이후의 편집은 T3 task(PLAN, EXEC_PLAN, ACCEPTED ADR, 사용자 승인)로 진행하고, 편집하면 prepare 된 모든 task 의 fingerprint 가 stale 이 되어 `revise` 가 필요하다. 실패하는 구현을 통과시키려고 requirements·`test_report` 한도·rule 을 낮추지 않는다.
+- `.ts`, `.js`, `.py` 소스는 프론트와 백엔드 어느 쪽인지 경로로만 안다. 위처럼 프로젝트 구조에 맞는 rule 을 더한다. rule 이 없어도 `new --domains` 로 선언한 도메인은 유지된다.
+- `protected_changes` 값은 `risk.protected_rules` 의 키여야 한다.
+- `pipeline.config.yaml` 편집은 T0 notice 다. 대신 lean `check` 가 이전 커밋과 비교한다. 꺼지거나 빠진 check, 줄어든 요구, 빠진 보호 rule 이 `weakened_checks` 로 나오고 사용자 결정이 필요하다. `tracked` 에서는 편집하면 prepare 된 task 의 fingerprint 가 stale 이 되어 `revise` 가 필요하다. 실패하는 구현을 통과시키려고 requirements·`test_report` 한도·rule 을 낮추지 않는다.

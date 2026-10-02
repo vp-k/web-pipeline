@@ -316,14 +316,23 @@ class ValidateWithoutTasksTests(Temp):
         with self.assertRaisesRegex(PipelineError, 'Required project command'):
             load_config(root)
 
+    def test_lean_readiness_starts_with_the_enabled_checks(self):
+        from web_pipeline.common import load_config
+        root = self.ready_project()
+        config = load_config(root)
+        config['workflow'] = 'lean'
+        check_id = config['verification']['requirements']['backend']['Full'][0]
+        next(c for c in config['verification']['commands'] if c['id'] == check_id)['enabled'] = False
+        atomic_json(root / 'pipeline.config.yaml', config)
+        self.assertEqual('lean', load_config(root)['workflow'])
+
 
 class LockfileRuleTests(unittest.TestCase):
     def test_default_lock_rule_matches_lockfiles_not_words_containing_lock(self):
-        import fnmatch
+        from web_pipeline.policy import rule_matches
         config = json.loads((ROOT / 'pipeline.config.yaml').read_text(encoding='utf-8-sig'))
-        patterns = [rule['pattern'] for rule in config['risk']['path_rules'] if 'major_framework_sdk' in rule['protected_changes']
-                    or 'lock' in rule['pattern'].lower()]
-        def hit(path): return any(fnmatch.fnmatchcase(path, pattern) for pattern in patterns)
+        rules = [rule for rule in config['risk']['path_rules'] if 'Dependency' in rule.get('notice', '')]
+        def hit(path): return any(rule_matches(rule, path) for rule in rules)
         for path in ('package-lock.json', 'web/pnpm-lock.yaml', 'yarn.lock', 'api/poetry.lock', 'Cargo.lock', 'go.sum', 'uv.lock'):
             self.assertTrue(hit(path), path)
         for path in ('src/components/BlockList.tsx', 'src/hooks/useClock.ts', 'src/unlock/page.tsx'):

@@ -86,6 +86,18 @@ iteration budgets. The changed source tree invalidates current-code evidence;
 existing task workflows may require explicit revision/re-verification. A rollback
 restores engine bytes, not application data or deployment state.
 
+## Moving an existing project to lean
+
+An upgrade does not change `pipeline.config.yaml` or `Docs/`. A project adopted before
+2.14 has no `workflow` key, so it stays `tracked`. A project adopted before 2.15 keeps
+its old path rules. With the user's agreement:
+
+1. Copy `Docs/Runbooks/LEAN.md` from the new kit and set `"workflow": "lean"`.
+2. Compare `risk.path_rules` with the new kit's `pipeline.config.yaml`. Adding a
+   shipped rule only promotes.
+3. Replacing an old broad glob such as `*auth*` with the word rules removes a rule.
+   Show the difference and let the user decide.
+
 ## Planning records after an upgrade
 
 Tasks created or explicitly revised by the current engine carry

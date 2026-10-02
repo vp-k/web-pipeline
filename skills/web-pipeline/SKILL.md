@@ -40,12 +40,13 @@ description: Adopt, configure, operate or audit the Web Development Pipeline - l
 
 1. 사용 가능한 기능 하나가 작업 단위다. 스키마, 시드, 타입, API, UI를 따로 쪼개지 않는다.
 2. 테스트는 구현과 함께 쓴다.
-3. 커밋 전마다 `python -m web_pipeline check`를 돌린다. 실패하면 먼저 고친다.
-4. 기능마다 `pipeline-reviewer`로 새 컨텍스트 리뷰를 한 번 받는다.
-5. 커밋 메시지 본문에 check 출력의 `commit_table`을 넣는다.
-6. check의 `decisions`에 있는 스키마, 인증, 개인정보, 보안 결정은 한 번에 묶어 묻는다. 답은 커밋 메시지에 남긴다.
-7. `tracked_required: true`거나 결제, 배포, Release, 운영 작업이면 추적 task를 쓴다.
-8. `Docs/Work` 폴더와 절차 메모를 만들지 않는다.
+3. 커밋 전마다 `python -m web_pipeline check`를 돌린다. 실패하면 먼저 고친다. 구현 중 반복은 `check --profile Fast`.
+4. check는 켜진 실제 check로 시작한다. 켜지지 않은 필수 check는 `missing_checks`와 표의 `Not enabled` 줄로 남는다. 실제 check가 하나도 없으면 FAIL이다.
+5. 기능마다 `pipeline-reviewer`로 새 컨텍스트 리뷰를 한 번 받는다. check의 `notices`도 리뷰에 넘긴다.
+6. 커밋 메시지 본문에 check 출력의 `commit_table`을 넣는다.
+7. check의 `decisions`에 있는 스키마, 인증, 개인정보, 보안 결정은 한 번에 묶어 묻는다. `weakened_checks`도 같이 묻는다. 답은 커밋 메시지에 남긴다.
+8. `tracked_required: true`거나 결제, 배포, Release, 운영 작업이면 추적 task를 쓴다.
+9. `Docs/Work` 폴더와 절차 메모를 만들지 않는다.
 
 **tracked**: 모든 변경이 `Docs/Work/<TaskId>/` task다. 아래 작업 리듬과 절대 규칙을 따른다.
 

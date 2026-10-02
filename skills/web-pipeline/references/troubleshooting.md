@@ -8,7 +8,8 @@
 | 문자열 | 원인 | 복구 |
 |---|---|---|
 | `Project is NOT_READY; configure sources, commands and Git baseline` | `project.mode` 가 `project` 가 아니거나 `project.ready` 가 `true` 가 아님 | `pipeline.config.yaml` 에서 `sources`, `verification.commands`, `project.supported_domains` 를 채우고 첫 commit 후 `ready: true` → `python -m web_pipeline validate` |
-| `Required project command <id> is disabled` | `policy_checks` 또는 지원 도메인의 필수 check 가 `enabled: false` | `verification.commands[]` 의 해당 id 에 `enabled: true` + 실제 `argv`. 쓰지 않는 도메인이면 `supported_domains` 에서 제거 |
+| `Required project commands are disabled: <ids>` | `tracked` 프로젝트에서 `policy_checks` 또는 지원 도메인의 필수 check 가 `enabled: false` | 해당 id 에 `enabled: true` + 실제 `argv`. 쓰지 않는 도메인이면 `supported_domains` 에서 제거. task 없이 기능을 만들 거면 `"workflow": "lean"` 과 `Docs/Runbooks/LEAN.md` |
+| `No enabled check runs in <profile>` | lean `check` 가 돌릴 실제 check 가 없음 | lint, typecheck, unit, build 중 하나 이상을 실제 `argv` 로 켠다 |
 | `<label>/<profile>: <check> cannot execute in required profile` | 필수 check 의 `profiles` 에 해당 프로필 없음 | 그 check 의 `profiles` 에 프로필 추가 |
 | `Configuration must be JSON-compatible YAML` | config 는 JSON 문법만 허용 | YAML 전용 문법(주석, 따옴표 없는 키) 제거 |
 | `compound shell execution forbidden for <id>; use an explicit script file` | `argv` 가 `cmd`, `sh -c`, `powershell -Command` 등 | 도구를 직접 호출(`["npm","run","lint"]`)하거나 `["pwsh","-NoProfile","-File","Scripts/x.ps1"]` / `["bash","Scripts/x.sh"]` |

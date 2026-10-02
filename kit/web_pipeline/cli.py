@@ -8,7 +8,7 @@ import sys
 from pathlib import Path
 from typing import Any
 
-from .common import PipelineError, load_config, read_state, source_fingerprint
+from .common import PipelineError, load_config, missing_checks, read_state, source_fingerprint
 
 
 def _csv(value: str | None) -> list[str]:
@@ -244,14 +244,33 @@ def _status(root: Path, task_id=None) -> dict:
             result['queue'] = {'status':'UNREADABLE', 'error':str(exc)}
     stale = [item['name'] for item in locks if not item['alive']]
     open_tasks = [item for item in tasks if item['status'] != 'DONE']
+    if project['mode'] == 'project' and result['ready']:
+        # The same loader that check and every task command use, so status cannot report a usable
+        # project that check then refuses.
+        result['missing_checks'] = missing_checks(config)
+        try:
+            load_config(root)
+        except (PipelineError, ValueError, OSError) as exc:
+            result['ready_error'] = str(exc)
     if project['mode'] != 'project': hint = 'This is a kit checkout, not an adopted project.'
     elif not result['ready']: hint = 'Project is not ready: configure sources and real checks, set project.ready=true, then run validate.'
+    elif 'ready_error' in result and result['missing_checks'] and result['workflow'] != 'lean':
+        hint = (result['ready_error'] + '. Enable them with real argv, trim project.supported_domains to the domains '
+                'this project has, or set "workflow": "lean" (Docs/Runbooks/LEAN.md).')
+    elif 'ready_error' in result: hint = 'Fix pipeline.config.yaml: ' + result['ready_error']
+    elif result['workflow'] == 'lean' and not result['enabled_checks']:
+        hint = 'Lean workflow needs at least one real check: enable lint, typecheck, unit or build with real argv.'
     elif stale: hint = 'Stale locks (' + ', '.join(stale) + ') are reclaimed automatically; locks --clear-stale removes them now.'
     elif result.get('queue', {}).get('status') in {'BUSY', 'PAUSED_LIMIT'}: hint = 'A queue is active: loop status, then loop next.'
     elif open_tasks: hint = 'Continue ' + ', '.join(f"{item['task_id']} ({item['status']})" for item in open_tasks[:5]) + '.'
     elif result['workflow'] == 'lean':
         hint = ('Lean workflow: build one feature with its tests, run check before each commit and get one review. '
                 'Use a tracked task (new ...) only for payment, deployment, release or production work.')
+        if result['missing_checks']:
+            hint += ' Not enabled yet: ' + ', '.join(result['missing_checks']) + '.'
+    elif 'workflow' not in config:
+        hint = ('No open task: create one with new --task <TaskId> --title ... --domains ... '
+                'To build features without a task per change, set "workflow": "lean" (Docs/Runbooks/LEAN.md).')
     else: hint = 'No open task: create one with new --task <TaskId> --title ... --domains ...'
     result['next'] = hint
     return result

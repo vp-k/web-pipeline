@@ -78,7 +78,9 @@ def classify(root: Path, config: dict[str, Any], state: dict[str, Any], *, chang
     except (PipelineError, OSError, ValueError) as exc:
         errors.append(str(exc))
     risk = config["risk"]
-    tier = _apply_path_rules(risk, paths, domains, protected, tier)
+    notices: set[str] = set()
+    tier = _apply_path_rules(risk, paths, domains, protected, tier, notices)
+    warnings.extend(sorted(notices))
     migration = state.get("migration_class", "none")
     if migration not in MIGRATION_FLOORS:
         errors.append(f"unknown migration class: {migration}")
@@ -108,13 +110,43 @@ def project_paths(root: Path, config: dict[str, Any], paths: list[str]) -> list[
     )]
 
 
-def _apply_path_rules(risk: dict[str, Any], paths: list[str], domains: set[str], protected: set[str], tier: str) -> str:
+_WORD = re.compile(r"[A-Z]+(?![a-z])|[A-Z]?[a-z]+|[0-9]+")
+
+
+def path_words(path: str) -> list[str]:
+    """Lowercase words of a path, camelCase split, plus each adjacent pair joined (Sign+In -> signin)."""
+    words = [word.lower() for word in _WORD.findall(path)]
+    return words + [first + second for first, second in zip(words, words[1:])]
+
+
+def _matches(mode: str, path: str, pattern: str) -> bool:
+    if mode == "glob":  # rules written before "match" existed keep case-sensitive full-path globs
+        return fnmatch.fnmatchcase(path, pattern)
+    pattern = pattern.lower()
+    if mode == "path":
+        return fnmatch.fnmatchcase(path.lower(), pattern)
+    if mode == "name":
+        return fnmatch.fnmatchcase(path.rsplit("/", 1)[-1].lower(), pattern)
+    return any(fnmatch.fnmatchcase(word, pattern) for word in path_words(path))
+
+
+def rule_matches(rule: dict[str, Any], path: str) -> bool:
+    mode = rule.get("match", "glob")
+    patterns = [rule["pattern"]] if isinstance(rule["pattern"], str) else rule["pattern"]
+    return (any(_matches(mode, path, pattern) for pattern in patterns)
+            and not any(_matches(mode, path, pattern) for pattern in rule.get("except", [])))
+
+
+def _apply_path_rules(risk: dict[str, Any], paths: list[str], domains: set[str], protected: set[str], tier: str,
+                      notices: set[str] | None = None) -> str:
     for path in paths:
         for rule in risk.get("path_rules", []):
-            if fnmatch.fnmatchcase(path, rule["pattern"]):
+            if rule_matches(rule, path):
                 domains.update(rule.get("domains", []))
                 protected.update(rule.get("protected_changes", []))
                 tier = _max_tier(tier, rule.get("tier", "T0"))
+                if notices is not None and rule.get("notice"):
+                    notices.add(rule["notice"])
     return tier
 
 
@@ -130,10 +162,11 @@ def path_risk(root: Path, config: dict[str, Any], paths: list[str]) -> dict[str,
     except PipelineError as exc:
         errors.append(str(exc))
     risk = config["risk"]
-    tier = _apply_path_rules(risk, paths, domains, protected, "T0")
+    notices: set[str] = set()
+    tier = _apply_path_rules(risk, paths, domains, protected, "T0", notices)
     tier = _close(risk, domains, protected, tier, errors)
     return {"risk_tier": tier, "change_domains": sorted(domains), "protected_changes": sorted(protected),
-            "changed_paths": paths, "errors": errors}
+            "changed_paths": paths, "notices": sorted(notices), "errors": errors}
 
 
 def _close(risk: dict[str, Any], domains: set[str], protected: set[str], tier: str, errors: list[str]) -> str:

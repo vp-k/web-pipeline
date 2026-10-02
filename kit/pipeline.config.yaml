@@ -475,7 +475,24 @@
     },
     "path_rules": [
       {
-        "pattern": "*auth*",
+        "pattern": [
+          "auth",
+          "oauth",
+          "authn",
+          "authenticat*",
+          "login",
+          "logout",
+          "signin",
+          "signout",
+          "password*",
+          "passwd",
+          "sso",
+          "oidc",
+          "saml",
+          "mfa",
+          "jwt"
+        ],
+        "match": "word",
         "domains": [
           "authentication"
         ],
@@ -485,7 +502,10 @@
         "tier": "T3"
       },
       {
-        "pattern": "*session*",
+        "pattern": [
+          "session*"
+        ],
+        "match": "word",
         "domains": [
           "authentication"
         ],
@@ -495,7 +515,59 @@
         "tier": "T3"
       },
       {
-        "pattern": "*payment*",
+        "pattern": [
+          "authz",
+          "authoriz*",
+          "rbac",
+          "permission*"
+        ],
+        "match": "word",
+        "domains": [
+          "authorization"
+        ],
+        "protected_changes": [
+          "authorization_rbac"
+        ],
+        "tier": "T3"
+      },
+      {
+        "pattern": [
+          "csrf",
+          "cors",
+          "csp"
+        ],
+        "match": "word",
+        "domains": [
+          "security"
+        ],
+        "protected_changes": [
+          "csrf_cors_csp"
+        ],
+        "tier": "T3"
+      },
+      {
+        "pattern": [
+          "encrypt*",
+          "decrypt*",
+          "cipher*"
+        ],
+        "match": "word",
+        "domains": [
+          "security"
+        ],
+        "protected_changes": [
+          "encryption"
+        ],
+        "tier": "T3"
+      },
+      {
+        "pattern": [
+          "payment*",
+          "billing*",
+          "checkout",
+          "stripe"
+        ],
+        "match": "word",
         "domains": [
           "payment"
         ],
@@ -505,7 +577,10 @@
         "tier": "T4"
       },
       {
-        "pattern": "*wallet*",
+        "pattern": [
+          "wallet*"
+        ],
+        "match": "word",
         "domains": [
           "payment"
         ],
@@ -515,7 +590,11 @@
         "tier": "T4"
       },
       {
-        "pattern": "*migration*",
+        "pattern": [
+          "migration*",
+          "alembic"
+        ],
+        "match": "word",
         "domains": [
           "database"
         ],
@@ -525,7 +604,14 @@
         "tier": "T3"
       },
       {
-        "pattern": "*.sql",
+        "pattern": [
+          "*.sql"
+        ],
+        "match": "path",
+        "except": [
+          "*seed*",
+          "*fixture*"
+        ],
         "domains": [
           "database"
         ],
@@ -535,7 +621,36 @@
         "tier": "T3"
       },
       {
-        "pattern": "*openapi*",
+        "pattern": [
+          "*.prisma",
+          "schema.rb"
+        ],
+        "match": "name",
+        "domains": [
+          "database"
+        ],
+        "protected_changes": [
+          "database_schema"
+        ],
+        "tier": "T3"
+      },
+      {
+        "pattern": [
+          "seed*",
+          "fixture*"
+        ],
+        "match": "word",
+        "notice": "Seed or fixture data changed: confirm that it holds no real personal data.",
+        "domains": [],
+        "protected_changes": [],
+        "tier": "T0"
+      },
+      {
+        "pattern": [
+          "openapi",
+          "swagger"
+        ],
+        "match": "word",
         "domains": [
           "api"
         ],
@@ -545,7 +660,12 @@
         "tier": "T3"
       },
       {
-        "pattern": "*.graphql",
+        "pattern": [
+          "*.graphql",
+          "*.gql",
+          "*.proto"
+        ],
+        "match": "name",
         "domains": [
           "api"
         ],
@@ -555,17 +675,10 @@
         "tier": "T3"
       },
       {
-        "pattern": "*.proto",
-        "domains": [
-          "api"
+        "pattern": [
+          "webhook*"
         ],
-        "protected_changes": [
-          "public_api_contract"
-        ],
-        "tier": "T3"
-      },
-      {
-        "pattern": "*webhook*",
+        "match": "word",
         "domains": [
           "external_integration"
         ],
@@ -575,7 +688,19 @@
         "tier": "T3"
       },
       {
-        "pattern": "*.tf",
+        "pattern": [
+          "*.tf",
+          "*.tfvars",
+          "Dockerfile*",
+          "*.dockerfile",
+          "docker-compose*",
+          "compose.yml",
+          "compose.yaml",
+          ".gitlab-ci.yml",
+          "vercel.json",
+          "netlify.toml"
+        ],
+        "match": "name",
         "domains": [
           "infrastructure"
         ],
@@ -585,7 +710,10 @@
         "tier": "T3"
       },
       {
-        "pattern": ".github/workflows/*",
+        "pattern": [
+          ".github/workflows/*"
+        ],
+        "match": "path",
         "domains": [
           "infrastructure"
         ],
@@ -595,17 +723,18 @@
         "tier": "T3"
       },
       {
-        "pattern": "*Dockerfile*",
-        "domains": [
-          "infrastructure"
+        "pattern": [
+          ".env",
+          ".env.*",
+          ".envrc"
         ],
-        "protected_changes": [
-          "infrastructure"
+        "match": "name",
+        "except": [
+          "*.example",
+          "*.sample",
+          "*.template",
+          "*.dist"
         ],
-        "tier": "T3"
-      },
-      {
-        "pattern": "*.env*",
         "domains": [
           "security"
         ],
@@ -615,7 +744,23 @@
         "tier": "T4"
       },
       {
-        "pattern": "*secret*",
+        "pattern": [
+          ".env",
+          ".env.*",
+          ".envrc"
+        ],
+        "match": "name",
+        "notice": "Environment file changed: confirm that no real secret or credential value is committed.",
+        "domains": [],
+        "protected_changes": [],
+        "tier": "T0"
+      },
+      {
+        "pattern": [
+          "secret",
+          "secrets"
+        ],
+        "match": "word",
         "domains": [
           "security"
         ],
@@ -625,107 +770,62 @@
         "tier": "T4"
       },
       {
-        "pattern": "*.lock",
+        "pattern": [
+          "*.pem",
+          "*.key",
+          "*.p12",
+          "*.pfx",
+          "id_rsa*",
+          "id_ed25519*"
+        ],
+        "match": "name",
         "domains": [
           "security"
         ],
         "protected_changes": [
-          "major_framework_sdk"
+          "secrets_credentials"
         ],
-        "tier": "T3"
+        "tier": "T4"
       },
       {
-        "pattern": "*-lock.json",
-        "domains": [
-          "security"
+        "pattern": [
+          "package.json",
+          "*-lock.json",
+          "*-lock.yaml",
+          "*.lock",
+          "*.lockb",
+          "npm-shrinkwrap.json",
+          "go.mod",
+          "go.sum",
+          "requirements*.txt",
+          "pyproject.toml",
+          "Pipfile",
+          "Gemfile",
+          "composer.json",
+          "Cargo.toml"
         ],
-        "protected_changes": [
-          "major_framework_sdk"
-        ],
-        "tier": "T3"
+        "match": "name",
+        "notice": "Dependency manifest or lockfile changed: the review checks each added or upgraded package. A major framework or SDK change is a major_framework_sdk decision.",
+        "domains": [],
+        "protected_changes": [],
+        "tier": "T0"
       },
       {
-        "pattern": "*-lock.yaml",
-        "domains": [
-          "security"
+        "pattern": [
+          "pipeline.config.yaml"
         ],
-        "protected_changes": [
-          "major_framework_sdk"
-        ],
-        "tier": "T3"
+        "match": "path",
+        "notice": "pipeline.config.yaml changed: check lists disabled or removed checks under weakened_checks, and the review confirms that no check was weakened.",
+        "domains": [],
+        "protected_changes": [],
+        "tier": "T0"
       },
       {
-        "pattern": "*.lockb",
-        "domains": [
-          "security"
+        "pattern": [
+          "web_pipeline/*",
+          "Scripts/*"
         ],
-        "protected_changes": [
-          "major_framework_sdk"
-        ],
-        "tier": "T3"
-      },
-      {
-        "pattern": "*npm-shrinkwrap.json",
-        "domains": [
-          "security"
-        ],
-        "protected_changes": [
-          "major_framework_sdk"
-        ],
-        "tier": "T3"
-      },
-      {
-        "pattern": "*go.sum",
-        "domains": [
-          "security"
-        ],
-        "protected_changes": [
-          "major_framework_sdk"
-        ],
-        "tier": "T3"
-      },
-      {
-        "pattern": "*go.mod",
-        "domains": [
-          "security"
-        ],
-        "protected_changes": [
-          "major_framework_sdk"
-        ],
-        "tier": "T3"
-      },
-      {
-        "pattern": "*package.json",
-        "domains": [
-          "security"
-        ],
-        "protected_changes": [
-          "major_framework_sdk"
-        ],
-        "tier": "T3"
-      },
-      {
-        "pattern": "requirements*.txt",
-        "domains": [
-          "security"
-        ],
-        "protected_changes": [
-          "major_framework_sdk"
-        ],
-        "tier": "T3"
-      },
-      {
-        "pattern": "pipeline.config.yaml",
-        "domains": [
-          "infrastructure"
-        ],
-        "protected_changes": [
-          "core_architecture"
-        ],
-        "tier": "T3"
-      },
-      {
-        "pattern": "web_pipeline/*",
+        "match": "glob",
         "domains": [
           "backend"
         ],
@@ -735,17 +835,30 @@
         "tier": "T3"
       },
       {
-        "pattern": "Scripts/*",
+        "pattern": [
+          "app/api/*",
+          "*/app/api/*",
+          "pages/api/*",
+          "*/pages/api/*",
+          "server/*",
+          "*/server/*"
+        ],
+        "match": "path",
         "domains": [
           "backend"
         ],
-        "protected_changes": [
-          "core_architecture"
-        ],
-        "tier": "T3"
+        "protected_changes": [],
+        "tier": "T1"
       },
       {
-        "pattern": "*.tsx",
+        "pattern": [
+          "*.tsx",
+          "*.jsx",
+          "*.vue",
+          "*.svelte",
+          "*.astro"
+        ],
+        "match": "name",
         "domains": [
           "frontend"
         ],
@@ -753,15 +866,13 @@
         "tier": "T1"
       },
       {
-        "pattern": "*.vue",
-        "domains": [
-          "frontend"
+        "pattern": [
+          "*.css",
+          "*.scss",
+          "*.sass",
+          "*.less"
         ],
-        "protected_changes": [],
-        "tier": "T1"
-      },
-      {
-        "pattern": "*.css",
+        "match": "name",
         "domains": [
           "frontend"
         ],
@@ -769,15 +880,14 @@
         "tier": "T0"
       },
       {
-        "pattern": "*.go",
-        "domains": [
-          "backend"
+        "pattern": [
+          "*.go",
+          "*.php",
+          "*.rb",
+          "*.java",
+          "*.kt"
         ],
-        "protected_changes": [],
-        "tier": "T1"
-      },
-      {
-        "pattern": "*.php",
+        "match": "name",
         "domains": [
           "backend"
         ],

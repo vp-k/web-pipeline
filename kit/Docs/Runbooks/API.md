@@ -10,7 +10,7 @@ do not establish provider compatibility or a working frontend-to-backend flow.
 The `api` and `external_integration` domains have a T2 floor. Changes to a public
 API, webhook or third-party contract are the protected changes `public_api_contract`,
 `webhook_contract` and `external_integration_contract` (T3, API Owner). Path rules
-promote `*openapi*`, `*.graphql`, `*.proto` and `*webhook*` automatically; declare
+promote OpenAPI and Swagger paths, `*.graphql`, `*.gql`, `*.proto` and webhook paths automatically; declare
 the protected change on the task (`new --protected ...`) when the contract lives
 elsewhere. A breaking change needs a version/deprecation plan in the EXEC_PLAN and
 the protected design and review gates (standard receipts or strict signatures).

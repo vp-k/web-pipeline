@@ -10,7 +10,7 @@ You review one pipeline task in a fresh context, without the implementer's assum
 
 The caller gives you the project root and either a TaskId (tracked) or, in a lean project, the feature description and the base revision of its diff. If neither form is complete, say so and stop.
 
-For a lean feature there is no task folder. Use the feature description as the acceptance criteria, `git diff <base>` plus untracked files as the change, and the latest `check-*` summary under the report root as evidence. Skip the task-folder steps below and report `TASK: lean <base>`.
+For a lean feature there is no task folder. Use the feature description as the acceptance criteria, `git diff <base>` plus untracked files as the change, and the latest `check-*` summary under the report root as evidence. Skip the task-folder steps below and report `TASK: lean <base>`. Read the summary's `notices`, `weakened_checks` and `missing_checks` as well as its check results.
 
 ## Procedure
 
@@ -26,6 +26,8 @@ For a lean feature there is no task folder. Use the feature description as the a
 - **Classification**: changed paths and semantics fit the recorded tier/domains/protected changes. Anything touching auth, sessions, permissions, secrets, PII, payments, schema/migrations, public API or webhooks, infrastructure or deployment that is not classified as such is a blocking finding — classification may only go up.
 - **Security basics**: client input and client state treated as untrusted; authorization enforced server-side; SQL parameterized and dynamic identifiers allow-listed; no secrets in code, logs or evidence; errors not silently swallowed.
 - **Scope**: no unrelated edits, no infrastructure/deployment work that was not requested, no hand edits to `STATE.md` status, run pointers or counters.
+- **Notices**: for a dependency notice, each added or upgraded package is needed, maintained and correctly named, and a major framework or SDK upgrade is recorded as a `major_framework_sdk` decision. For an environment-file notice, no real secret or credential value is committed. For a seed or fixture notice, the data holds no real personal data.
+- **Check configuration**: a `pipeline.config.yaml` change that disables, removes or narrows a check, requirement or protected path rule needs a user decision in the commit or task; without one it is a blocking finding. A criterion that only a not-enabled check (`missing_checks`) would verify is UNVERIFIED.
 - **Evidence honesty**: logs and screenshots correspond to the current source; nothing fabricated.
 
 ## Output

@@ -4,7 +4,7 @@
 
 An adopted project starts with `project.mode: "project"` and `project.ready: false`. Before readiness, set all six `sources` to existing repository-relative documents, declare supported domains, configure risk/path coverage, and register proven commands as argv arrays. Each command has `id`, `enabled`, `profiles`, `argv`, `cwd`, `timeout_seconds`, `artifacts`, and a non-production `environment`. Shell strings and compound interpreters (`sh -c`, `cmd /c`, PowerShell `-Command`) are rejected.
 
-Requirements name command IDs by domain and profile. Development readiness requires enabled Policy/Baseline/Fast/Full checks for supported domains. Release-only definitions may remain disabled until Release is requested; the Release runner reports them NOT_RUN and cannot grant readiness. Release inherits Full. A missing or disabled requirement is NOT_RUN and fails the profile. Production commands are forbidden: Release establishes readiness only.
+Requirements name command IDs by domain and profile. Tracked development readiness requires enabled Policy/Baseline/Fast/Full checks for supported domains. A lean project starts with the checks it has enabled: `status` and `check` list the other required checks in `missing_checks`, and `check` fails only when no enabled check runs in its profile. Release-only definitions may remain disabled until Release is requested; the Release runner reports them NOT_RUN and cannot grant readiness. Release inherits Full. A missing or disabled requirement is NOT_RUN and fails the profile. Production commands are forbidden: Release establishes readiness only.
 
 ## Workflow
 
@@ -34,7 +34,7 @@ Standard receipts never need a trust file; only existing signed records do. Chan
 6. Create the intended DRAFT task with `new --task ... --domains ... --base-ref ...`. Progress validation permits an empty active task set with a warning; only the merge gate rejects it. Do not invent a setup task merely to run configuration validation.
 7. Set `ready: true`, then run `python -m web_pipeline validate`. If it fails, return readiness to false while correcting configuration; kit mode is not a project bypass. Populate task documents, prepare, and capture Baseline before entering READY.
 
-`python -m web_pipeline status` is the read-only orientation command: it reports adoption, engine version, readiness, policy, enabled checks, every task's status/tier/revision/iteration, held locks with owner liveness, the queue and a `next` hint. It never raises for an unadopted or not-ready project.
+`python -m web_pipeline status` is the read-only orientation command: it reports adoption, engine version, readiness, policy, enabled checks, every task's status/tier/revision/iteration, held locks with owner liveness, the queue and a `next` hint. It never raises for an unadopted or not-ready project. For a ready project it lists `missing_checks` and, when the configuration would make commands fail, `ready_error`.
 
 ## Source fingerprints and exclusions
 
@@ -46,9 +46,28 @@ The same checks apply to `report_root` and implicit cache exclusions (`.git`, `n
 
 ## Path rules
 
-`risk.path_rules` classify changed paths into domains, protected changes and a tier floor. Patterns are case-sensitive `fnmatch` patterns matched against POSIX-style repository-relative paths, and `*` also matches `/` (`Scripts/*` covers nested files; `*.sql` matches any depth). They only promote classification; semantic review still decides whether a diff is breaking or public.
+`risk.path_rules` classify changed paths into domains, protected changes and a tier floor. They only promote classification; semantic review still decides whether a diff is breaking or public. A rule has a `pattern` (one string or a list) and a `match` mode:
 
-The shipped rules treat dependency manifests and lockfiles as `major_framework_sdk` (security domain, T3): `*.lock`, `*-lock.json`, `*-lock.yaml`, `*.lockb`, `*npm-shrinkwrap.json`, `*go.sum`, `*go.mod`, `*package.json` and `requirements*.txt`. `*auth*`, `*session*`, `*payment*`, `*wallet*`, `*migration*`, `*.sql`, `*openapi*`, `*.graphql`, `*.proto`, `*webhook*`, `*.tf`, `.github/workflows/*`, `*Dockerfile*`, `*.env*`, `*secret*`, `pipeline.config.yaml`, `web_pipeline/*` and `Scripts/*` map to their protected changes. Add rules for each real contract, migration and infrastructure location in the project.
+| `match` | Compared with | Case |
+|---|---|---|
+| `word` | each word of the path | ignored |
+| `name` | the file name | ignored |
+| `path` | the whole repository-relative path | ignored |
+| `glob` (default) | the whole repository-relative path | sensitive |
+
+Patterns are `fnmatch` patterns against POSIX-style paths, and `*` also matches `/` in `path` and `glob` mode. `word` mode lowercases the path and splits it at every non-alphanumeric character, at camelCase boundaries and around digits; each pair of adjacent words joined also counts. `src/hooks/useOAuth.ts` splits into `src`, `hooks`, `use`, `o`, `auth` and `ts`, and the pair `oauth` counts too, so `auth` and `oauth` match it. `src/AuthorCard.tsx` splits into `src`, `author`, `card` and `tsx`, so `auth` does not. Rules written before `match` existed keep case-sensitive `glob` matching.
+
+`except` lists patterns, in the same mode, that the rule skips. `notice` is a sentence that `check` and `classify` report whenever the rule matches; a notice-only rule (tier T0, no domains) raises nothing.
+
+The shipped rules:
+
+- words for authentication, sessions, authorization, CSRF/CORS/CSP and encryption map to their protected changes (T3); payment, billing, checkout, Stripe and wallet words are T4;
+- migration words, `*.sql` outside seed and fixture paths, `*.prisma` and `schema.rb` are `database_schema`; OpenAPI and Swagger words, `*.graphql`, `*.gql`, `*.proto` and webhook words are contracts;
+- Terraform, Dockerfiles, compose files, `.github/workflows/*`, `.gitlab-ci.yml`, `vercel.json` and `netlify.toml` are `infrastructure`; `.env` files (not `.env.example` and similar templates), key files and the word `secret` are `secrets_credentials` (T4);
+- dependency manifests and lockfiles, seed and fixture paths, environment files and `pipeline.config.yaml` raise notices; `web_pipeline/*` and `Scripts/*` stay `core_architecture`;
+- `app/api`, `pages/api` and `server` paths and Go, PHP, Ruby, Java and Kotlin files add `backend`; JSX/TSX, Vue, Svelte, Astro and stylesheet files add `frontend`.
+
+Add rules for each real contract, migration and infrastructure location in the project, and for `.ts`, `.js` or `.py` sources whose domain only their location shows. Replacing a broad rule with a narrower one removes protection: it is a user decision, and lean `check` reports it in `weakened_checks`.
 
 ## Locks
 

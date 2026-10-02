@@ -16,10 +16,18 @@ python -m web_pipeline check --base-ref main  # 변경 경로 비교 기준. 기
 | 출력 키 | 뜻 |
 |---|---|
 | `status` | 모든 check PASS면 `PASS`. 아니면 `FAIL`이고 exit 1 |
-| `commit_table` | 커밋 메시지에 넣는 check별 결과 표 |
+| `checks` | 실행한 check와 결과 |
+| `commit_table` | 커밋 메시지에 넣는 check별 결과 표. 켜지지 않은 필수 check는 `Not enabled` 줄로 붙는다 |
+| `missing_checks` | 변경 도메인과 보호 변경이 요구하지만 켜지지 않은 check |
 | `decisions` | 변경 경로가 가리키는 보호 변경. 사용자 결정이 필요하다 |
+| `weakened_checks` | `--base-ref` 커밋의 설정보다 줄어든 check, 요구, 보호 rule. 사용자 결정이 필요하다 |
+| `notices` | 의존성, `.env`, seed, 설정 변경처럼 리뷰가 확인할 항목 |
 | `tracked_required` | 변경 경로가 T4. 추적 task로 옮긴다 |
 | `evidence` | 로그와 `summary.json`이 있는 보고서 폴더 |
+
+- `Full`은 `Full` 또는 `Policy` 프로필의 켜진 check를 모두 돌린다.
+- `Fast`는 정책 check와 변경 도메인의 Fast 요구 check만 돌린다. 요구 목록에 없는 프로젝트 check는 자기 `profiles`를 따른다.
+- 켜진 실제 check가 하나도 없으면 `FAIL`이다. 나머지는 `missing_checks`로 보고하고 진행한다.
 
 check는 준비된 프로젝트에서만 돈다. `Docs/Work`에 아무것도 만들지 않고 승인을 기록하지 않는다.
 

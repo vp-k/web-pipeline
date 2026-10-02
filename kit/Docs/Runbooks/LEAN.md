@@ -11,15 +11,33 @@ Lean delivers features with real checks and review, without a task record per ch
 5. Get one fresh-context review of the feature diff, using the `pipeline-reviewer` agent when available. Fix blocking findings and run check again.
 6. Commit. The message body contains the `commit_table` from the check output and any user decision the feature relied on.
 
-`check` runs every enabled command whose profiles include the selected profile (`Full` by default). It needs a ready project. Logs and `summary.json` go under the report root, which Git ignores. They are evidence of what ran, not approvals.
+## What check runs
+
+- `check` (profile `Full`) runs every enabled command whose profiles include `Full` or `Policy`.
+- `check --profile Fast` runs the enabled policy checks and the `Fast` requirements of the supported and changed domains. A project-defined check that no requirement names follows its own profiles.
+- A lean project starts with the checks it has enabled. A required check that is not enabled is listed in `missing_checks` and in the `Not enabled` line of the commit table. Enable it with a real command when the tool exists; never wire a placeholder that always passes.
+- With no enabled check for the profile, `check` fails. `status` reports the same `missing_checks`.
+
+`check` needs a ready project. Logs and `summary.json` go under the report root, which Git ignores. They are evidence of what ran, not approvals.
 
 ## Decisions
 
 `check` lists `decisions`: protected changes that the changed paths imply, such as `database_schema`, `authentication` or `personal_data_pii`. The user decides schema changes, authentication and authorization, personal data, security settings and public API contracts.
 
-- Group every open decision for the feature into one question and ask once.
+- Group every open decision for the feature, including `weakened_checks`, into one question and ask once.
 - Record the answer in the commit message.
 - Do not ask again for a decision already given in this conversation or recorded in an earlier commit.
+
+## Notices and weakened checks
+
+`notices` name changes that the review confirms; they do not raise the tier or need a user decision:
+
+- dependency manifests and lockfiles: review each added or upgraded package. A major framework or SDK upgrade is still a `major_framework_sdk` decision;
+- environment files: no real secret or credential value is committed;
+- seed and fixture data: no real personal data;
+- `pipeline.config.yaml`: see `weakened_checks`.
+
+`weakened_checks` compares `pipeline.config.yaml` with its version at `--base-ref` (default `HEAD`). It lists a disabled or removed check, a profile removed from an enabled check, a requirement or policy check removed, a supported domain removed, and a removed or changed protected path rule. Each one is a user decision: ask it with the other decisions and record the answer in the commit message. Never weaken a check to make a failing feature pass.
 
 ## When a tracked task is required
 

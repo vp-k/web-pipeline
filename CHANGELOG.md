@@ -1,5 +1,17 @@
 # Changelog
 
+## 2.15.0 — 기능 우선 검사
+
+- lean 프로젝트는 실제 check가 하나라도 켜져 있으면 시작한다. 켜지지 않은 필수 check는 `status`와 `check`의 `missing_checks`, 결과표의 `Not enabled` 줄로 남는다. tracked는 기존 준비 조건을 유지한다.
+- `status`가 설정 오류를 미리 보여 준다. `ready_error`에 명령이 실패할 이유가 나오고, tracked 프로젝트에는 lean 전환 방법을 안내한다.
+- `check --profile Fast`가 도메인의 Fast 요구 check와 정책 check만 돌린다. 정책 check는 모든 lean 프로필에서 돈다.
+- `check`가 `--base-ref`의 설정과 비교해 꺼지거나 빠진 check, 줄어든 요구, 빠진 보호 rule을 `weakened_checks`로 보고한다. 사용자 결정이 필요하다.
+- path rule에 `match`(`word`/`name`/`path`/`glob`), 패턴 목록, `except`, `notice`를 추가했다. `match`가 없는 rule은 예전처럼 대소문자 구분 glob이다.
+- 기본 rule을 단어 단위로 바꿨다. `useOAuth.ts`, `SignIn.tsx`는 인증으로 잡고 `AuthorCard.tsx`, `BlockList.tsx`는 잡지 않는다. `.sql`, `.prisma`, `.env` 류, 키 파일, Dockerfile, compose, 배포 설정도 해당 보호 변경으로 잡는다.
+- 의존성 manifest와 lock 파일은 T3 결정 대신 T0 notice다. seed, `.env` 류, `pipeline.config.yaml` 변경도 notice로 리뷰가 확인한다. 엔진 파일은 계속 T3 `core_architecture`다.
+- `.tsx`, `.jsx`, `.vue`, `.svelte`, `.astro`, 스타일 파일은 frontend, `app/api`·`pages/api`·`server` 경로와 `.go`·`.php`·`.rb`·`.java`·`.kt`는 backend 도메인을 받는다.
+- `pipeline-reviewer`가 notice와 `weakened_checks`를 확인한다.
+
 ## 2.14.0 — lean 모드
 
 - 설정에 `workflow`(`lean`/`tracked`)를 추가했다. 새 도입은 `lean`이다. 값이 없는 기존 프로젝트는 `tracked`로 동작이 바뀌지 않는다.

@@ -23,7 +23,7 @@ Only an executed, conclusive, successful check is PASS.
 - Full: all applicable unit, contract, integration, browser E2E, build, smoke, and evidence checks.
 - Release: Full plus security, dependency audit, migration dry-run, rollback validation, performance, production-build packaging, and non-production deployment-readiness smoke checks as applicable. It never performs a production operation.
 
-The configured command list is project-specific. A command marked required but disabled or unset is a policy error.
+The configured command list is project-specific. In a tracked project a command marked required but disabled or unset is a readiness error, and a profile run reports it NOT_RUN. A lean project starts with its enabled checks; `check` lists the other required checks as `missing_checks` in its result and commit table.
 
 Opt-in `verification.scopes` narrows completion runs; see [scope configuration and phase gates](../Runbooks/VERIFICATION_SCOPES.md). Task completion uses Task, a tracked phase uses Phase, and Full/Release cover the configured project. Unknown/ambiguous impact, broad inputs and T4 work expand to project-wide checks. Protected/T3 work adds its domain and protected-rule checks to the component scope instead; Fast stays component-scoped. Existing configurations without scopes retain Full completion. Phase coverage validates exact historical member evidence only after current combined-source checks and required review/approvals pass; it is not a cached PASS.
 

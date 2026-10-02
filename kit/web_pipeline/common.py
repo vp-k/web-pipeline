@@ -243,6 +243,27 @@ def validate_tracked_exclusions(root, config):
     return report, generated
 
 
+DEVELOPMENT_PROFILES = ('Baseline', 'Fast', 'Full')
+
+
+def missing_checks(config, domains=None, profiles=DEVELOPMENT_PROFILES, protected=()):
+    """Required checks that are not enabled, for the given domains (default: supported) and profiles.
+
+    Development readiness does not imply Release readiness: Release-only checks
+    stay declared and the Release runner requires them.
+    """
+    verification = config['verification']
+    enabled = {item['id'] for item in verification['commands'] if item['enabled']}
+    needed = set(verification['policy_checks'])
+    for domain in config['project']['supported_domains'] if domains is None else domains:
+        for profile in profiles:
+            needed.update(verification['requirements'].get(domain, {}).get(profile, []))
+    for change in protected:
+        for profile in profiles:
+            needed.update(config['risk']['protected_rules'].get(change, {}).get('checks', {}).get(profile, []))
+    return sorted(needed - enabled)
+
+
 def load_config(root, kit=False):
     path = safe_path(root, 'pipeline.config.yaml', True)
     try:
@@ -299,15 +320,11 @@ def load_config(root, kit=False):
     if not kit:
         if config['project']['mode'] != 'project' or not config['project']['ready']:
             raise PipelineError('Project is NOT_READY; configure sources, commands and Git baseline')
-        needed = set(config['verification']['policy_checks'])
-        for domain in config['project']['supported_domains']:
-            # Development readiness does not imply Release readiness. Release-only
-            # checks remain declared and are required by the Release runner.
-            for profile in ('Baseline', 'Fast', 'Full'):
-                needed.update(requirements[domain][profile])
-        for check_id in needed:
-            if not definitions[check_id]['enabled']:
-                raise PipelineError(f'Required project command {check_id} is disabled')
+        # Lean projects start with the checks they have; check reports the rest.
+        # Tracked projects keep development readiness for every supported domain.
+        missing = missing_checks(config)
+        if missing and config.get('workflow', 'tracked') != 'lean':
+            raise PipelineError('Required project commands are disabled: ' + ', '.join(missing))
         validate_tracked_exclusions(root, config)
     from .boundaries import validate_config as validate_boundaries
     validate_boundaries(root, config, kit=kit)

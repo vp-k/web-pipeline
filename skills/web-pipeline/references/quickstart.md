@@ -1,6 +1,8 @@
 # Quickstart: 도입부터 첫 DONE 까지
 
-실제 저장소에 엔진을 도입하고 T1 task 하나를 DONE 으로 만드는 최단 경로. 명령 상세는 [commands.md](commands.md), 설정 레시피는 [config-cookbook.md](config-cookbook.md), 채워진 문서 예시는 [worked-example.md](worked-example.md).
+실제 저장소에 엔진을 도입하고 T1 task 하나를 DONE 으로 만드는 최단 경로.
+
+새 도입의 기본값은 `lean` 이다. lean 은 1~3절까지 같고, 그 다음은 task 없이 `/web-pipeline:check` 흐름으로 기능을 만든다. 4절 이후는 `tracked` 용이다. 명령 상세는 [commands.md](commands.md), 설정 레시피는 [config-cookbook.md](config-cookbook.md), 채워진 문서 예시는 [worked-example.md](worked-example.md).
 
 ## 0. 전제
 
@@ -31,14 +33,14 @@ python -m venv .venv
 
 1. **sources**: `sources` 6개(`product_spec`, `feature_spec`, `api_contract`, `data_contract`, `security_policy`, `architecture`)가 실제로 존재하는 저장소 상대 경로여야 한다. 도입된 `Docs/` 템플릿을 프로젝트 내용으로 채우거나 기존 문서 경로로 바꾼다.
 2. **supported_domains**: 이 저장소가 실제로 다루는 도메인만 남긴다. 도메인마다 필수 check 가 늘어난다.
-3. **commands**: 도메인이 요구하는 check id 마다 실제 명령을 `argv` 배열로 배선하고 `enabled: true`. 배선 전에 각 명령을 그 `cwd` 에서 직접 실행해 동작을 확인한다. `policy_checks` 와 지원 도메인의 Baseline/Fast/Full/Release 목록에 있는 id 가 하나라도 disabled 면 모든 명령이 `Required project command <id> is disabled` 로 실패한다. 도구가 없는 check 는 더미로 채우지 말고 cookbook §3 절차로 목록을 조정한다.
+3. **commands**: 도메인이 요구하는 check id 마다 실제 명령을 `argv` 배열로 배선하고 `enabled: true`. 배선 전에 각 명령을 그 `cwd` 에서 직접 실행해 동작을 확인한다. `tracked` 는 `policy_checks` 와 지원 도메인의 Baseline/Fast/Full 목록에 있는 id 가 하나라도 disabled 면 모든 명령이 `Required project commands are disabled: <ids>` 로 실패한다. `lean` 은 켜진 check 로 시작하고 나머지를 `missing_checks` 로 보고한다. 도구가 없는 check 는 더미로 채우지 말고 cookbook §3 절차로 목록을 조정한다.
 4. **출력 경로**: `project.respect_gitignore: true` 이면 Git 이 무시하는 빌드 출력(`.next/`, `dist/`, `coverage/`)은 자동 제외된다. 아니면 `project.generated_paths` 에 루트 기준 경로로 적는다. 빠뜨리면 검증 run 이 `source changed during verification` 으로 FAIL 한다.
-5. **path rules**: `risk.path_rules` 에 프로젝트의 실제 auth·migration·계약 위치와 `.ts`/`.py` 등 소스 rule 을 더한다(cookbook §6).
+5. **path rules**: 기본 rule 은 단어로 인증·결제·스키마 경로를 잡는다. 프로젝트의 실제 auth·migration·계약 위치와 `.ts`/`.py` 소스 rule 을 더한다(cookbook §6).
 6. `project.name` 을 정하고 `"ready": true` 로 바꾼다.
-7. **Git baseline commit**: 엔진·설정·문서를 모두 commit 한다. 첫 task 의 diff 에 `pipeline.config.yaml` 이나 엔진 파일이 섞이면 그 task 가 T3 로 승격되므로 task 생성 **전에** commit 한다.
+7. **Git baseline commit**: 엔진·설정·문서를 모두 commit 한다. 첫 task 의 diff 에 엔진 파일이 섞이면 T3 로 승격되고, `pipeline.config.yaml` 이 섞이면 검증 범위가 프로젝트 전체로 넓어진다. 그래서 task 생성 **전에** commit 한다.
 8. **base_ref**: 이 baseline commit 이 첫 task 의 비교 기준이다. `new --base-ref HEAD` 는 그 시점의 commit 으로 고정된다.
 
-`ready: true` 이후의 설정 변경은 T3 통제 변경이다. 설정은 이 단계에서 끝낸다.
+`ready: true` 이후 설정을 바꾸면 prepare 된 task 의 fingerprint 가 stale 이 되어 `revise` 가 필요하다. check 를 끄거나 요구를 줄이는 변경은 사용자 결정이다. lean `check` 는 이를 `weakened_checks` 로 보고한다. 설정은 이 단계에서 끝낸다.
 
 ## 3. 첫 task 와 validate
 

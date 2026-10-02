@@ -1,6 +1,6 @@
 # Worked Example: 가입 폼 이메일 형식 검증 (T2, frontend + api)
 
-전제: [config-cookbook.md](config-cookbook.md) (g) 구성의 모노레포(`frontend/`, `backend/`, `contracts/`), `approval_policy: standard`, `verification.scopes` 설정됨(component `web`, `api`). 변경 파일은 `frontend/src/features/signup/SignupForm.tsx`, `frontend/src/features/signup/email.ts`, `backend/src/routes/signup.ts`, `contracts/signup.schema.json`. 이 경로들은 보호 rule 에 걸리지 않는다. 같은 코드가 `.../auth/...` 아래에 있으면 `*auth*` rule 로 T3 `authentication` 이 되어 이 예시의 절차(로컬 리뷰)로는 끝나지 않는다.
+전제: [config-cookbook.md](config-cookbook.md) (g) 구성의 모노레포(`frontend/`, `backend/`, `contracts/`), `approval_policy: standard`, `verification.scopes` 설정됨(component `web`, `api`). 변경 파일은 `frontend/src/features/signup/SignupForm.tsx`, `frontend/src/features/signup/email.ts`, `backend/src/routes/signup.ts`, `contracts/signup.schema.json`. 이 경로들은 보호 rule 에 걸리지 않는다. 같은 코드가 `.../auth/...` 아래에 있거나 파일 이름에 `login`, `password` 같은 단어가 있으면 인증 단어 rule 로 T3 `authentication` 이 된다. 그러면 이 예시의 절차(로컬 리뷰)로는 끝나지 않는다.
 
 Tier 근거: `api` 도메인 floor 가 T2. T2 이므로 `PLAN.md` 가 추가로 필요하고 리뷰는 로컬 self-review 다.
 

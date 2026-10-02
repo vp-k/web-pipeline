@@ -22,10 +22,10 @@ argument-hint: "[target-path] [--domains frontend,api,...] [--ci] [--workflow le
    - `--preview`의 `conflicts`가 비어 있지 않으면 멈추고 목록을 보여준다. 기존 파일을 지우거나 덮어써서 해결하지 않는다.
 2. **스택 파악** — 저장소를 읽어 실제 구성요소(프런트/백엔드/DB/API), 패키지 매니저, 기존 테스트·린트·빌드 명령을 확인한다. 없는 백엔드를 만들어내지 않는다. 실제로 있는 도메인만 `--domains`로 넘긴다.
 3. **도입** — `adopt --target "<target>" [--domains ...] [--ci] [--workflow lean|tracked]`. 기본은 `lean`이다. 사용자가 모든 변경의 task 기록을 원할 때만 `tracked`. 결과의 `written`/`merged`/`preserved`를 사용자에게 그대로 보고한다.
-4. **연결** — `pipeline.config.yaml`의 `sources`, `verification.commands`(실제 명령의 argv), `project.generated_paths`, 필요한 경우 `boundaries`/`verification.scopes`를 설정한다. 자리표시자 명령(`echo ok`, 항상 0을 반환하는 스크립트)을 연결하지 않는다.
+4. **연결** — `pipeline.config.yaml`의 `sources`, `verification.commands`(실제 명령의 argv), `project.generated_paths`, 필요한 경우 `boundaries`/`verification.scopes`를 설정한다. 자리표시자 명령(`echo ok`, 항상 0을 반환하는 스크립트)을 연결하지 않는다. `lean`은 실제 check 하나 이상으로 시작할 수 있다. 도구가 없는 check는 꺼 둔 채 보고한다.
 5. **준비 확인** — Git 기준 커밋이 있는지 확인한 뒤 `project.ready: true`로 바꾸고 프로젝트 루트에서 `python -m web_pipeline validate`. 실패 문자열은 `references/troubleshooting.md`에서 찾는다.
-6. **요청받은 첫 기능으로 검증** — 구현까지 요청받았을 때만, 실제 요청 기능 하나를 DONE까지 완성한다. 별도 시범 기능을 만들거나 위험 등급을 T1로 고정하지 않는다. 도입만 요청받았다면 설정 결과를 보고한다.
+6. **요청받은 첫 기능으로 검증** — 구현까지 요청받았을 때만, 실제 요청 기능 하나를 완성한다. `lean`은 `/web-pipeline:check` 흐름으로 커밋까지, `tracked`는 DONE까지다. 별도 시범 기능을 만들거나 위험 등급을 T1로 고정하지 않는다. 도입만 요청받았다면 설정 결과를 보고한다.
 
 ## 보고
 
-도입된 엔진 버전, 활성화한 check id와 각 명령, 비활성으로 남긴 check와 이유, `validate` 결과, 남은 사용자 결정 사항.
+도입된 엔진 버전, `workflow`, 활성화한 check id와 각 명령, `status`의 `missing_checks`와 각 이유, `validate` 결과, 남은 사용자 결정 사항.
