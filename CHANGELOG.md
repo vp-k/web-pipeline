@@ -1,5 +1,11 @@
 # Changelog
 
+## 2.15.1 — 지침 정리
+
+- `PIPELINE.md`의 증거 절이 엔진이 만들지도 읽지도 않는 `VERIFICATION.md`를 가리켰다. 수용 기준은 `ACCEPTANCE.json`의 check ID로 증명한다고 고쳤다. 쓰이지 않던 `Templates/VERIFICATION_TEMPLATE.md`는 지웠다. 이미 도입된 프로젝트의 사본은 업그레이드가 건드리지 않는다.
+- 스킬 트리거에 lean 기능 작업과 커밋 전 check를 넣었다. 이전에는 tracked 작업만 지목해 새 도입 기본값인 lean 작업에서 스킬이 불리지 않았다.
+- 스킬의 lean 규칙 8번을 `LEAN.md`와 맞췄다. 파괴적 마이그레이션, 의미상 T4, 감사 증거 요청도 추적 task를 쓴다.
+
 ## 2.15.0 — 기능 우선 검사
 
 - lean 프로젝트는 실제 check가 하나라도 켜져 있으면 시작한다. 켜지지 않은 필수 check는 `status`와 `check`의 `missing_checks`, 결과표의 `Not enabled` 줄로 남는다. tracked는 기존 준비 조건을 유지한다.

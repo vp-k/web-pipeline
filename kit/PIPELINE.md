@@ -74,4 +74,4 @@ Use `PLAN.md` for T2 work and a living `EXEC_PLAN.md` for T3/T4 or multi-milesto
 
 ## Evidence
 
-Generated evidence lives under `Reports/Pipeline/<RunId>/`. Link each acceptance criterion in `VERIFICATION.md` to an executed check or an explicit human observation.
+Generated evidence lives under `Reports/Pipeline/<RunId>/`. In a tracked task, each criterion in `ACCEPTANCE.json` lists the configured check IDs that prove it. REVIEW, DONE and Release readiness need those checks to PASS in the completion or Release run.

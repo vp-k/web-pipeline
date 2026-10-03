@@ -1,6 +1,6 @@
 {
   "schema_version": 1,
-  "engine_version": "2.15.0",
+  "engine_version": "2.15.1",
   "files": {
     "ci/project-policy.yml": "eec664282f85942ccaef87e80bdd3ecd0c7df7f7384bd974020aef265587bb4e",
     "Docs/ADR/README.md": "a98768d5daeaa84053e110374428956758d4bf2c3ceef120daea609be850acfa",
@@ -39,7 +39,7 @@
     "Docs/Runbooks/VERIFICATION_SCOPES.md": "a11bfd9db62774561718856c9bd5c062866617d47a82d852c2bfc096aa5ad3a2",
     "gitignore.txt": "afb1076ab5428334d3c15c26ecbc231be105cb246e799142f61cb827a8f766b9",
     "pipeline.config.yaml": "8d0d9ba52fce8c8a26c9cf6628a3949012c21282ed1573bcb836a8227d2640ee",
-    "PIPELINE.md": "a91751624bbec634926af18ed95772c98e0d3ab9fc85c1978129ace20d7f4585",
+    "PIPELINE.md": "8ba6305d0e3fc38455966d1940b04cdb9860ef5cc4f96c955021e43637c9f0c7",
     "requirements.txt": "8d254fe823c7a71321d48e871b864c9bf6e914a198e990579fc879ec9cf81dc4",
     "Schemas/acceptance.schema.json": "796cfa5ac151795454f157e9c81c8318988e3378fe6e30a0ffea06650933b084",
     "Schemas/adr.schema.json": "5b17564b196d712ac8371ce9b551d801c18c2a6e18819250c6071aa58947f719",
@@ -86,8 +86,7 @@
     "Templates/PLAN_TEMPLATE.md": "ca2748fd54bb0c450740d029a8fae23c5ea703c68f804a653e59f5939f04c6ec",
     "Templates/RELEASE_TEMPLATE.md": "303dfd623bb5b1e5f9c18eb19dbbd317fc3a547a97e9b9579bfc52b8b17971a4",
     "Templates/REVIEW_TEMPLATE.md": "8d90b88d08c2b38d2137a2d24b9359481e0f6d93bf08d852ae23e4acd8e0f1af",
-    "Templates/VERIFICATION_TEMPLATE.md": "14bc91e8f4306abca729a51c2c53a4837e2ca7ba0e318216c4a13741de373231",
-    "web_pipeline/__init__.py": "11ba7b12862856814b61273e17aea0dfac13ad1f7f0afade4f69fb0b62b4d7dc",
+    "web_pipeline/__init__.py": "5a1979ad2d759006c98ea46803536d42993c2b143933c4c8b8d01ccee70b7ecc",
     "web_pipeline/__main__.py": "935a1c1166b0c1ea35a82256345000bf2c73ded718d77773bc27a71ecce28f7d",
     "web_pipeline/approval.py": "4436e88bbce000e01b9628d4b9a569b1a9ddbad085f1b826175a60f204242a5c",
     "web_pipeline/archival.py": "9fbb701a80cd346097998d58d095b7a477c159fc1a64c2afe415091400070f9c",

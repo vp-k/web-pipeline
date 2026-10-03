@@ -1,6 +1,6 @@
 ---
 name: web-pipeline
-description: Adopt, configure, operate or audit the Web Development Pipeline - lean pre-commit checks or tracked tasks under Docs/Work, risk tiers T0-T4, real verification evidence, approval gates and a durable work queue. Use when the user asks for the web pipeline explicitly, or when the repository contains pipeline.config.yaml and the request is tracked development work, verification, review, status or an engine upgrade. Not for ordinary edits in repositories that have not adopted it.
+description: Adopt, configure, operate or audit the Web Development Pipeline - lean pre-commit checks or tracked tasks under Docs/Work, risk tiers T0-T4, real verification evidence, approval gates and a durable work queue. Use when the user asks for the web pipeline explicitly, or when the repository contains pipeline.config.yaml and the request is feature or fix work, a pre-commit check, a tracked task, verification, review, status or an engine upgrade. Not for ordinary edits in repositories that have not adopted it.
 ---
 
 # Web Development Pipeline
@@ -45,7 +45,7 @@ description: Adopt, configure, operate or audit the Web Development Pipeline - l
 5. 기능마다 `pipeline-reviewer`로 새 컨텍스트 리뷰를 한 번 받는다. check의 `notices`도 리뷰에 넘긴다.
 6. 커밋 메시지 본문에 check 출력의 `commit_table`을 넣는다.
 7. check의 `decisions`에 있는 스키마, 인증, 개인정보, 보안 결정은 한 번에 묶어 묻는다. `weakened_checks`도 같이 묻는다. 답은 커밋 메시지에 남긴다.
-8. `tracked_required: true`거나 결제, 배포, Release, 운영 작업이면 추적 task를 쓴다.
+8. `tracked_required: true`거나 결제, 배포, Release, 운영, 파괴적 마이그레이션 작업이면 추적 task를 쓴다. check가 표시하지 않아도 의미상 T4이거나 사용자가 감사 증거를 요청하면 같다. 기준은 프로젝트의 `Docs/Runbooks/LEAN.md`다.
 9. `Docs/Work` 폴더와 절차 메모를 만들지 않는다.
 
 **tracked**: 모든 변경이 `Docs/Work/<TaskId>/` task다. 아래 작업 리듬과 절대 규칙을 따른다.
