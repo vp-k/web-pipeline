@@ -30,12 +30,13 @@ def _parser() -> argparse.ArgumentParser:
     new.add_argument("--tier", choices=[f"T{i}" for i in range(5)], default="T1")
     new.add_argument("--domains", required=True); new.add_argument("--protected", default="")
     new.add_argument("--migration", default="none", choices=["none", "reversible", "backward_compatible", "destructive", "irreversible"])
-    new.add_argument("--base-ref")
+    new.add_argument("--base-ref", help='Git revision the task is compared with (default: the current commit)')
     transition = commands.add_parser("transition")
     transition.add_argument("--task", required=True); transition.add_argument("--status", required=True, choices=["DRAFT","READY","IN_PROGRESS","VERIFYING","REVIEW","DONE","BLOCKED"])
     transition.add_argument("--trust")
     prepare = commands.add_parser("prepare")
     prepare.add_argument("--task", required=True); prepare.add_argument("--implementer", default='claude', help='execution label, not a human identity (default: claude)')
+    prepare.add_argument('--base-ref', help='set or repair the Git revision this DRAFT task is compared with')
     clarification = commands.add_parser('clarification-report', help='read-only planning questions; CLEAR is not readiness or approval')
     clarification.add_argument('--task', required=True)
     review = commands.add_parser('review', help='record local self-review for standard unprotected T1/T2; not human approval')
@@ -77,8 +78,15 @@ def _parser() -> argparse.ArgumentParser:
     init.add_argument('--workflow', choices=['lean', 'tracked'], default='lean',
                       help='lean: check before each commit, tracked tasks only when needed (default); tracked: every change is a task')
     check = commands.add_parser('check', help='lean workflow: run enabled checks on the working tree without a task')
-    check.add_argument('--profile', choices=['Fast', 'Full'], default='Full')
+    check.add_argument('--profile', choices=['Fast', 'Task', 'Full'],
+                       help='default: Task when verification.scopes declares components, otherwise Full')
     check.add_argument('--base-ref', default='HEAD', help='changed paths are compared with this revision (default: HEAD)')
+    feature = commands.add_parser('feature', help='lean workflow: the project feature backlog in build order')
+    feature_commands = feature.add_subparsers(dest='feature_command', required=True)
+    feature_commands.add_parser('add', help='append a feature').add_argument('title')
+    feature_commands.add_parser('list', help='every feature and its status')
+    feature_commands.add_parser('next', help='start the first waiting feature, or show the active one')
+    feature_commands.add_parser('done', help='finish the active feature after a passing check')
     status = commands.add_parser('status', help='read-only summary: readiness, tasks, locks, queue and next step')
     status.add_argument('--task')
     locks = commands.add_parser('locks', help='list operation locks; --clear-stale removes those whose process is gone')
@@ -133,16 +141,20 @@ def _kit_files(source: Path, folder: str) -> list[Path]:
     return [item for item in sorted((source / folder).rglob('*')) if item.is_file() and '__pycache__' not in item.parts]
 
 
-def _merged_gitignore(source: Path, target: Path) -> str | None:
+MERGED_LINES = {'.gitignore': ('gitignore.txt', '# web pipeline'), '.gitattributes': ('gitattributes.txt', None)}
+
+
+def _merged_lines(source: Path, target: Path, name: str) -> str | None:
     """Existing lines stay untouched and first; only missing pipeline lines are appended."""
-    path = target / '.gitignore'
+    seed, header = MERGED_LINES[name]
+    path = target / name
     current = path.read_text(encoding='utf-8-sig') if path.is_file() else ''
     present = {line.strip() for line in current.splitlines()}
-    missing = [line for line in (source / 'gitignore.txt').read_text(encoding='utf-8-sig').splitlines()
+    missing = [line for line in (source / seed).read_text(encoding='utf-8-sig').splitlines()
                if line.strip() and line.strip() not in present]
     if not missing: return None
     head = current if not current or current.endswith('\n') else current + '\n'
-    return head + ('\n# web pipeline\n' if current else '') + '\n'.join(missing) + '\n'
+    return head + ('\n' + (header + '\n' if header else '') if current else '') + '\n'.join(missing) + '\n'
 
 
 def _init(source: Path, target: Path, preview=False, domains=None, ci=False, workflow='lean') -> dict:
@@ -161,13 +173,14 @@ def _init(source: Path, target: Path, preview=False, domains=None, ci=False, wor
     engine.append((source / 'requirements.txt', target / 'requirements-pipeline.txt'))
     if ci: engine.append((source / 'ci/project-policy.yml', target / '.github/workflows/project-policy.yml'))
     seeds = [(item, target / item.relative_to(source)) for folder in SEED_FOLDERS for item in _kit_files(source, folder)]
-    missing = [str(src) for src, _ in engine + seeds if not src.is_file()] + [str(source / 'gitignore.txt')] * (not (source / 'gitignore.txt').is_file())
+    missing = [str(src) for src in [src for src, _ in engine + seeds] + [source / seed for seed, _ in MERGED_LINES.values()]
+               if not src.is_file()]
     if missing: raise PipelineError("kit is incomplete: " + ", ".join(missing))
     conflicts = [str(dst) for _, dst in engine if dst.exists()]
     if safe_path(target, RECEIPT).exists(): conflicts.append(str(target / RECEIPT))
     preserved = sorted(dst.relative_to(target).as_posix() for _, dst in seeds if dst.exists())
     seeds = [(src, dst) for src, dst in seeds if not dst.exists()]
-    merged_names = ['CLAUDE.md', '.gitignore']
+    merged_names = ['CLAUDE.md', *MERGED_LINES]
     destinations = [dst for _, dst in engine + seeds] + [target / name for name in merged_names] + [target / 'Reports/Pipeline/.gitkeep']
     unsafe = sorted({str(dst) for dst in destinations
                      if any(parent.is_symlink() or (hasattr(parent, 'is_junction') and parent.is_junction()) for parent in [dst, *dst.parents])})
@@ -188,9 +201,10 @@ def _init(source: Path, target: Path, preview=False, domains=None, ci=False, wor
     if IMPORT_LINE not in rules.splitlines():
         atomic_text(claude, (rules if not rules or rules.endswith('\n') else rules + '\n') + ('\n' if rules else '# Project instructions\n\n') + IMPORT_BLOCK)
         merged.append('CLAUDE.md')
-    ignore = _merged_gitignore(source, target)
-    if ignore is not None:
-        atomic_text(target / '.gitignore', ignore); merged.append('.gitignore')
+    for name in MERGED_LINES:
+        lines = _merged_lines(source, target, name)
+        if lines is not None:
+            atomic_text(target / name, lines); merged.append(name)
     config["project"]["mode"] = "project"
     config["project"]["ready"] = False
     config['workflow'] = workflow
@@ -242,6 +256,13 @@ def _status(root: Path, task_id=None) -> dict:
             result['queue'] = {key: queue[key] for key in ('status', 'queue_id', 'paused_reason', 'steps', 'lease')}
         except (PipelineError, ValueError, OSError, KeyError) as exc:
             result['queue'] = {'status':'UNREADABLE', 'error':str(exc)}
+    if result['workflow'] == 'lean':
+        try:
+            from .features import summary
+            backlog = summary(root)
+            if backlog is not None: result['features'] = backlog
+        except (PipelineError, ValueError, OSError, KeyError) as exc:
+            result['features'] = {'error': str(exc)}
     stale = [item['name'] for item in locks if not item['alive']]
     open_tasks = [item for item in tasks if item['status'] != 'DONE']
     if project['mode'] == 'project' and result['ready']:
@@ -263,8 +284,16 @@ def _status(root: Path, task_id=None) -> dict:
     elif stale: hint = 'Stale locks (' + ', '.join(stale) + ') are reclaimed automatically; locks --clear-stale removes them now.'
     elif result.get('queue', {}).get('status') in {'BUSY', 'PAUSED_LIMIT'}: hint = 'A queue is active: loop status, then loop next.'
     elif open_tasks: hint = 'Continue ' + ', '.join(f"{item['task_id']} ({item['status']})" for item in open_tasks[:5]) + '.'
+    elif result['workflow'] == 'lean' and result.get('features', {}).get('active'):
+        active = result['features']['active']
+        hint = (f"Continue {active['id']} {active['title']!r}: finish it with its tests, run check, get one review, "
+                'then feature done and commit with the check table.')
+    elif result['workflow'] == 'lean' and result.get('features', {}).get('next'):
+        upcoming = result['features']['next']
+        hint = f"Next feature {upcoming['id']} {upcoming['title']!r}: run feature next."
     elif result['workflow'] == 'lean':
         hint = ('Lean workflow: build one feature with its tests, run check before each commit and get one review. '
+                'For a whole project, list the features in build order with feature add. '
                 'Use a tracked task (new ...) only for payment, deployment, release or production work.')
         if result['missing_checks']:
             hint += ' Not enabled yet: ' + ', '.join(result['missing_checks']) + '.'
@@ -306,6 +335,12 @@ def dispatch(args: argparse.Namespace) -> dict[str, Any]:
     if args.command == 'check':
         from .lean import check
         return check(root, args.profile, args.base_ref)
+    if args.command == 'feature':
+        from . import features
+        if args.feature_command == 'add': return features.add(root, args.title)
+        if args.feature_command == 'list': return features.listing(root)
+        if args.feature_command == 'next': return features.start(root)
+        return features.done(root)
     if args.command == 'status': return _status(root, args.task)
     if args.command == 'locks':
         from .common import held_locks
@@ -327,7 +362,7 @@ def dispatch(args: argparse.Namespace) -> dict[str, Any]:
         return transition(root,args.task,args.status,trust_path=args.trust)
     if args.command == "prepare":
         from .state import prepare_task
-        return prepare_task(root,args.task,args.implementer)
+        return prepare_task(root,args.task,args.implementer,args.base_ref)
     if args.command == 'review':
         from .local_review import record_review
         return record_review(root, args.task, json.loads(Path(args.decision).read_text(encoding='utf-8-sig')))

@@ -18,8 +18,11 @@ python -m web_pipeline loop complete --token <token> --outcome <outcome> --decis
 
 ## 규칙
 
+- 큐를 시작할 때 사용자에게 한 번 묻는다. task마다 커밋할지, 끝에 한 번에 커밋할지다. 답은 큐가 끝날 때까지 쓴다.
+- 응답에 `commit_point`가 있으면 DONE task만 작업 트리에 있는 시점이다. 사용자가 task별 커밋을 원했으면 `git status`를 보고 `message`로 커밋한다. 커밋은 task 증거를 바꾸지 않는다.
 - `loop next`가 돌려준 **그 액션 하나**를 수행하고 `loop complete`로 닫은 뒤 다시 `loop next`. 중간 보고, 테스트 1회 통과, 참고용 리뷰는 멈출 이유가 아니다.
 - `ACTION_REQUIRED`는 에이전트가 수행할 작업이다. `WAITING`/`FAIL`은 원인을 읽고 요청 범위 안의 수리·환경·기록 문제를 해결한 뒤 같은 큐를 재개한다. 실제 미해결 사용자 결정·외부 권한·강제 한도·사용자 중지에서만 멈춘다. `COMPLETE`면 결과를 보고한다.
+- REPAIR 액션에는 `repair`가 붙는다. 실패한 실행의 check와 로그, 또는 변경을 요구한 리뷰 결정이 들어 있다. 그 원인부터 고친다.
 - 루프의 단위는 기능이다. 구현하고 관련 검사로 확인한 뒤 다음 액션으로 간다. 같은 원인으로 막힌 검증을 반복하거나 절차 메모를 쓰는 데 턴을 쓰지 않는다.
 - `time_budget_mode: warn`의 시간 경고는 정지나 renew 사유가 아니다. 개별 명령 timeout과 실패·반복·스텝 한도는 유지한다.
 - `PAUSED_LIMIT`에서 스스로 `loop renew`하지 않는다. 사용자가 **새로** 재개를 요청하면 그 요청과 이유를 기록해 한 번, 한정된 양만 `renew`한다. 이전의 포괄적인 "계속해" 지시로 반복 갱신하지 않는다.

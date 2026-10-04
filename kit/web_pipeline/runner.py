@@ -11,7 +11,7 @@ from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any
 
-from .common import (PipelineError, atomic_json, code_snapshot, load_config,
+from .common import (PipelineError, atomic_json, code_snapshot, hash_file, load_config,
                      lock, read_state, safe_path, source_fingerprint, utc_now,
                      validate_schema, write_state)
 from .evidence import (collect_artifacts, failure_fingerprint, policy_snapshot,
@@ -134,12 +134,25 @@ def _unique_run_dir(root: Path, config: dict[str, Any], run_id: str | None) -> t
     return run_id, run_dir
 
 
-def _release_gate(root: Path, config: dict[str, Any], state: dict[str, Any], trust_path: Path | None) -> None:
-    full_id = state.get("full_run")
-    if not full_id:
+def released_completion(root: Path, config: dict[str, Any], state: dict[str, Any],
+                        trust_path: Path | str | None) -> dict[str, Any]:
+    """The completion evidence a release stands on: the tree released must be the tree completed."""
+    if not state.get("full_run"):
         raise PipelineError("Release requires current passing completion evidence")
-    validate_completion(root, config, state, full_id, require_current=True,
-                 trust_path=trust_path)
+    if not state.get("completion_seal"):
+        return validate_completion(root, config, state, state["full_run"], require_current=True,
+                                   trust_path=trust_path)
+    # Release checks may arrive after DONE: the completed work stands as recorded.
+    from . import seal
+    completed = seal.verify(root, config, state, trust_path)
+    if completed["snapshot"]["tree_digest"] != code_snapshot(root, config)["tree_digest"]:
+        raise PipelineError("Release must verify the completed tree; source changed since DONE")
+    return completed
+
+
+def _release_gate(root: Path, config: dict[str, Any], state: dict[str, Any], trust_path: Path | None) -> None:
+    released_completion(root, config, state, trust_path)
+    full_id = state["full_run"]
     roles = {"Release Owner"}
     for protected in state.get("protected_changes", []):
         roles.update(config.get("risk", {}).get("protected_rules", {}).get(protected, {}).get("roles", []))
@@ -204,6 +217,8 @@ def run_profile(root: Path | str, task_id: str, profile: str,
         if profile == "Release":
             state["release_run"] = None
             state["release_status"] = "NOT_READY"
+            if state.get("completion_seal"):
+                state["completion_seal"].pop("release", None)
             state["updated_utc"] = utc_now()
             write_state(root, state)
         before_fingerprint = fingerprint
@@ -345,6 +360,10 @@ def run_profile(root: Path | str, task_id: str, profile: str,
                 state[pointer] = run_id
             if profile == "Release":
                 state["release_status"] = "READY"
+                if state.get("completion_seal"):
+                    # Release readiness becomes history the same way DONE does.
+                    state["completion_seal"]["release"] = {
+                        "run": run_id, "digest": hash_file(run_dir / "summary.json"), "recorded_utc": utc_now()}
         elif profile == "Release":
             state["release_status"] = "NOT_READY"
         state["updated_utc"] = utc_now()
@@ -354,7 +373,9 @@ def run_profile(root: Path | str, task_id: str, profile: str,
 
 def validate_run(root: Path | str, config: dict[str, Any], state: dict[str, Any], run_id: str,
                  profile: str | None = None, require_current: bool = True,
-                 trust_path: Path | str | None = None) -> dict[str, Any]:
+                 trust_path: Path | str | None = None, historical: bool = False) -> dict[str, Any]:
+    """historical: the run is a record of work already judged, such as the Baseline of started work or the
+    runs of a sealed DONE. Under a later policy its recorded verdict stands if its evidence is intact."""
     root = Path(root).resolve()
     run_dir = safe_path(safe_path(root, config["project"]["report_root"], must_exist=True), run_id, must_exist=True)
     summary_path = safe_path(run_dir, "summary.json", must_exist=True)
@@ -370,13 +391,17 @@ def validate_run(root: Path | str, config: dict[str, Any], state: dict[str, Any]
     baseline_capture = summary.get("profile") == "Baseline"
     if summary.get("status") != "PASS" and not (baseline_capture and summary.get("status") == "FAIL"):
         raise PipelineError("run is not passing")
-    if summary.get("policy_snapshot") != policy_snapshot(config):
+    current_policy = summary.get("policy_snapshot") == policy_snapshot(config)
+    if not current_policy and not historical:
         raise PipelineError("verification policy changed since run")
     current_fingerprint = source_fingerprint(root, config, state)
     if summary.get("fingerprint") != current_fingerprint:
         raise PipelineError("run task/source fingerprint is stale")
     if require_current and summary.get("snapshot", {}).get("tree_digest") != code_snapshot(root, config)["tree_digest"]:
         raise PipelineError("run code snapshot is stale")
+    if not current_policy:
+        _validate_record(root, config, state, run_dir, summary, trust_path)
+        return summary
     checks = summary.get("checks", [])
     by_id = {c.get("id"): c for c in checks}
     if len(by_id) != len(checks):
@@ -455,10 +480,39 @@ def validate_run(root: Path | str, config: dict[str, Any], state: dict[str, Any]
     return summary
 
 
-def validate_completion(root, config, state, run_id, require_current=True, trust_path=None):
+def _validate_record(root: Path, config: dict[str, Any], state: dict[str, Any], run_dir: Path,
+                     summary: dict[str, Any], trust_path: Path | str | None) -> None:
+    """A run made under an earlier policy: the checks that policy required are not knowable from the current
+    one, so judge what was recorded. Every result needs its executed evidence, and every byte its hash."""
+    checks = summary.get("checks", [])
+    if len({c.get("id") for c in checks}) != len(checks):
+        raise PipelineError("duplicate check ids in summary")
+    baseline_capture = summary.get("profile") == "Baseline"
+    for check in checks:
+        if check.get("status") == "NOT_APPLICABLE":
+            from .approval import validate_exception
+            validate_exception(root, config, state, check["id"], trust_path)
+        elif baseline_capture and check.get("status") == "FAIL":
+            if not isinstance(check.get("exit_code"), int) or not check.get("log"):
+                raise PipelineError(f"Baseline failure lacks executed exit/log evidence: {check['id']}")
+        elif check.get("status") != "PASS":
+            raise PipelineError("run contains a non-passing check")
+        elif check.get("exit_code") != 0 or not check.get("log"):
+            raise PipelineError(f"executed PASS lacks exit code/log evidence: {check['id']}")
+    validate_artifact_hashes(run_dir, summary.get("artifacts", []))
+    recorded = {a["path"] for a in summary.get("artifacts", [])}
+    for check in checks:
+        if check.get("log") and check["log"] not in recorded:
+            raise PipelineError(f"check log is not hash-bound: {check['id']}")
+
+
+def validate_completion(root, config, state, run_id, require_current=True, trust_path=None, historical=False):
     """Validate the configured completion profile; explicit Full is a stronger run."""
     expected = scopes.completion_profile(root, config, state)
-    summary = validate_run(root, config, state, run_id, require_current=require_current, trust_path=trust_path)
-    if summary['profile'] not in {expected, 'Full'}:
+    summary = validate_run(root, config, state, run_id, require_current=require_current, trust_path=trust_path,
+                           historical=historical)
+    # A run recorded under an earlier policy may predate the current verification scopes.
+    allowed = scopes.COMPLETION if summary.get('policy_snapshot') != policy_snapshot(config) else {expected, 'Full'}
+    if summary['profile'] not in allowed:
         raise PipelineError(f'Completion requires {expected} or Full evidence')
     return summary

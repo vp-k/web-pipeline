@@ -111,5 +111,59 @@ class LeanTests(unittest.TestCase):
         self.assertTrue(tracked['tracked_required'])
         self.assertIn('tracked task', tracked['next'])
 
+    def scoped(self):
+        """Components a and b depend on shared; unit-b fails whenever it runs."""
+        root, config = self.adopted()
+        for name, script in [('a', 'ok.py'), ('b', 'bad.py'), ('shared', 'ok.py')]:
+            (root / f'{name}.py').write_bytes(b'value = 1\n')
+            self.command(config, f'unit-{name}', script, profiles=('Full',))
+        self.command(config, 'e2e', 'ok.py', profiles=('Full',))
+        config['verification']['scopes'] = {
+            'components': [{'id': name, 'paths': [f'{name}.py'], 'domains': ['frontend'],
+                            'depends_on': [] if name == 'shared' else ['shared'],
+                            'checks': {'Task': [f'unit-{name}'], 'Phase': []}} for name in ['a', 'b', 'shared']],
+            'task_checks': [], 'phase_checks': [], 'broad_paths': ['global/*']}
+        self.save(root, config)
+        git(root, 'add', '-A'); git(root, 'commit', '-qm', 'scopes')
+        return root
+
+    def run_check(self, root, *extra):
+        return cli.dispatch(cli._parser().parse_args(['--root', str(root), 'check', *extra]))
+
+    def test_check_with_scopes_runs_only_the_affected_components(self):
+        root = self.scoped()
+        (root / 'a.py').write_bytes(b'value = 2\n')
+        result = self.run_check(root)
+        self.assertEqual(('PASS', 'Task'), (result['status'], result['profile']), result)
+        self.assertEqual(['unit-a'], [item['id'] for item in result['checks']])
+        self.assertEqual(('task', ['a']), (result['scope']['level'], result['scope']['components']))
+        self.assertIn('--profile Full', result['next'])
+        (root / 'shared.py').write_bytes(b'value = 2\n')
+        consumers = self.run_check(root)
+        self.assertEqual(['unit-a', 'unit-b', 'unit-shared'], sorted(item['id'] for item in consumers['checks']))
+        self.assertEqual('FAIL', consumers['status'])
+
+    def test_scoped_check_expands_to_full_for_broad_or_unowned_paths(self):
+        root = self.scoped()
+        (root / 'global').mkdir()
+        (root / 'global/settings.py').write_bytes(b'x = 1\n')
+        broad = self.run_check(root)
+        self.assertEqual('project', broad['scope']['level'])
+        self.assertTrue(any('broad input' in reason for reason in broad['scope']['reasons']), broad['scope'])
+        full = self.run_check(root, '--profile', 'Full')
+        self.assertEqual(sorted(item['id'] for item in full['checks']), sorted(item['id'] for item in broad['checks']))
+        self.assertIn('e2e', [item['id'] for item in broad['checks']])
+        (root / 'global/settings.py').unlink(); (root / 'global').rmdir()
+        (root / 'notes.py').write_bytes(b'x = 1\n')
+        unowned = self.run_check(root)
+        self.assertEqual('project', unowned['scope']['level'])
+
+    def test_task_profile_needs_scopes_and_full_stays_the_default_without_them(self):
+        root, config = self.adopted()
+        self.command(config, 'unit-ok', 'ok.py'); self.save(root, config)
+        self.assertEqual('Full', self.run_check(root)['profile'])
+        with self.assertRaisesRegex(Exception, 'verification.scopes'):
+            self.run_check(root, '--profile', 'Task')
+
 
 if __name__ == '__main__': unittest.main()

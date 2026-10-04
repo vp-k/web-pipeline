@@ -15,7 +15,35 @@ from .common import (PipelineError, atomic_json, hash_file, load_config, lock,
 from . import scopes
 
 JOURNAL = 'Docs/Work/ARCHIVE_PENDING.json'
-OUTPUTS = ('ARCHIVE.json', 'SOURCE.zip', 'SOURCE_MANIFEST.json')
+OUTPUTS = ('ARCHIVE.json', 'SOURCE.zip', 'SOURCE_MANIFEST.json', 'EVIDENCE.zip')
+LEGACY_OUTPUTS = ('ARCHIVE.json', 'SOURCE.zip', 'SOURCE_MANIFEST.json')  # journals written before 2.16
+
+
+def _capture_evidence(root, config, folder, state):
+    """Keep the run evidence with the archive; the report root is not committed.
+
+    Every file a summary hash-binds is copied after its hash is checked, plus the
+    configuration at archive time. Interpreter caches and process notes are not evidence.
+    """
+    import zipfile
+    report = config['project']['report_root']
+    runs = list(dict.fromkeys(run for run in (state['baseline_run'], state['full_run'], state['release_run']) if run))
+    target = safe_path(folder, 'EVIDENCE.zip')
+    digests = {}
+    with zipfile.ZipFile(target, mode='x', compression=zipfile.ZIP_DEFLATED) as bundle:
+        for run in runs:
+            run_dir = safe_path(root, f'{report}/{run}', True)
+            summary_path = safe_path(run_dir, 'summary.json', True)
+            summary = json.loads(summary_path.read_text(encoding='utf-8-sig'))
+            for artifact in summary.get('artifacts', []):
+                path = safe_path(run_dir, artifact['path'], True)
+                if hash_file(path) != artifact['sha256']:
+                    raise PipelineError(f"run evidence changed since the run: {run}/{artifact['path']}")
+                bundle.write(path, f"{run}/{artifact['path']}")
+            bundle.write(summary_path, f'{run}/summary.json')
+            digests[run] = hash_file(summary_path)
+        bundle.write(safe_path(root, 'pipeline.config.yaml', True), 'pipeline.config.yaml')
+    return {'path': 'EVIDENCE.zip', 'sha256': hash_file(target), 'runs': digests}
 
 
 def _group(root, config, task_id, include_members):
@@ -67,7 +95,7 @@ def _rollback(root, journal):
         folder = source if source.exists() else target
         if hash_file(safe_path(folder, 'STATE.md', True)) != entry['state_sha256']:
             raise PipelineError('Archive recovery state changed; refusing overwrite')
-        if set(entry['outputs']) != set(OUTPUTS):
+        if set(entry['outputs']) not in (set(OUTPUTS), set(LEGACY_OUTPUTS)):
             raise PipelineError('Invalid archive recovery outputs')
         for name, digest in entry['outputs'].items():
             output = safe_path(folder, name)
@@ -132,7 +160,8 @@ def archive(root, task_id, trust_path=None, *, include_members=False):
                 raise PipelineError('task is not currently valid for archive: ' + '; '.join(result['errors']))
             scope = scopes.task_scope(root, config, state)
             if scope['level'] == 'phase':
-                summary = validate_completion(root, config, state, state['full_run'], trust_path=trust_path)
+                summary = validate_completion(root, config, state, state['full_run'], trust_path=trust_path,
+                                              historical=True)
                 current[name] = summary
                 report = safe_path(root, f"{config['project']['report_root']}/{state['full_run']}", True)
                 plan = json.loads(safe_path(report, scopes.ARTIFACT, True).read_text(encoding='utf-8-sig'))
@@ -167,14 +196,18 @@ def archive(root, task_id, trust_path=None, *, include_members=False):
             for name, state in states.items():
                 folder = safe_path(root, f'Docs/Work/{name}', True)
                 coverage = covered.get(name)
+                # The archived tree must be the completed tree; a later policy does not reopen it.
                 summary = current.get(name) or validate_completion(
-                    root, config, state, state['full_run'], require_current=coverage is None, trust_path=trust_path)
+                    root, config, state, state['full_run'], require_current=coverage is None, trust_path=trust_path,
+                    historical=True)
                 digest = coverage['tree_digest'] if coverage else summary['snapshot']['tree_digest']
                 bundle = capture_source_bundle(root, config, folder, digest)
                 prepared.append(folder)
+                evidence = _capture_evidence(root, config, folder, state)
                 data = {'schema_version': '3.0' if coverage else '2.0',
                         'task_id': name, 'revision': state['revision'], 'archived_utc': utc_now(),
                         'state_sha256': hash_file(folder / 'STATE.md'), 'source_bundle': bundle,
+                        'evidence': evidence,
                         'runs': {'baseline': state['baseline_run'], 'full': state['full_run'], 'release': state['release_run']}}
                 if coverage:
                     data.update(phase_coverage=coverage, completion_snapshot=summary['snapshot'])

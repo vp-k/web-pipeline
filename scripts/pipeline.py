@@ -21,13 +21,19 @@ BUNDLE = PLUGIN / 'kit'
 MANIFEST = PLUGIN / 'kit-manifest.json'
 
 
+def text_digest(path: Path) -> str:
+    """Matches the engine's receipts: a CRLF checkout of an LF text file is the same file."""
+    data = path.read_bytes()
+    return hashlib.sha256(data if b'\0' in data else data.replace(b'\r\n', b'\n')).hexdigest()
+
+
 def inventory(folder: Path) -> dict[str, str]:
     result = {}
     for path in sorted(folder.rglob('*')):
         if path.is_symlink() or (hasattr(path, 'is_junction') and path.is_junction()):
             raise ValueError('Package assets must not contain links')
         if path.is_file() and '__pycache__' not in path.parts and path.suffix != '.pyc':
-            result[path.relative_to(folder).as_posix()] = hashlib.sha256(path.read_bytes()).hexdigest()
+            result[path.relative_to(folder).as_posix()] = text_digest(path)
     return result
 
 

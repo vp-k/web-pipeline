@@ -274,8 +274,8 @@ class UserApprovalTests(unittest.TestCase):
         data = self.consent('design')
         saved = record_approval(self.root, self.task, data)
         original = (self.root / saved['path']).read_bytes()
-        source = self.root / self.config['sources']['feature_spec']
-        atomic_text(source, 'Changed acceptance scope\n')
+        # The task's own records bind consent; project documents bind it only when the plan cites them.
+        atomic_text(self.root / f'Docs/Work/{self.task}/DOR.md', 'Changed acceptance scope\n')
         with self.assertRaisesRegex(PipelineError, 'fingerprint'):
             record_approval(self.root, self.task, data)
         revise_task(self.root, self.task, 'Fixture user withdrew approval')

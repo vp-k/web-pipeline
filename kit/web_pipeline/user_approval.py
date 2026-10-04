@@ -24,7 +24,7 @@ def exception_requirements(config, state, check_id):
 
 def _request(root, config, state, phase, check_id=None, *, allow_unneeded=False, trust_path=None):
     from .state import _roles
-    from .runner import validate_completion
+    from .runner import released_completion, validate_completion
     if config.get('approval_policy', 'strict') != 'standard':
         raise PipelineError('Strict policy requires signed approvals; user receipts are not accepted')
     if not state.get('fingerprint') or state['fingerprint'] != source_fingerprint(root, config, state):
@@ -53,7 +53,8 @@ def _request(root, config, state, phase, check_id=None, *, allow_unneeded=False,
     if phase in {'review', 'release'}:
         if not state.get('full_run'):
             raise PipelineError('Approval requires current passing completion evidence')
-        summary = validate_completion(root, config, state, state.get('full_run'), trust_path=trust_path)
+        summary = (released_completion(root, config, state, trust_path) if phase == 'release'
+                   else validate_completion(root, config, state, state.get('full_run'), trust_path=trust_path))
         request.update(tree_digest=summary['snapshot']['tree_digest'], run_id=summary['run_id'],
                        run_digest=hash_file(safe_path(root, f"{config['project']['report_root']}/{summary['run_id']}/summary.json", True)))
     return request
@@ -64,9 +65,11 @@ def approval_request(root, task_id, phase, check_id=None, *, trust_path=None):
     with lock(root, f'task-{task_id}'):
         config, state = load_config(root), read_state(root, task_id)
         from .policy import classify
-        classified = classify(root, config, state)
-        if classified['errors'] or any(state[key] != classified[key] for key in
-                                       ('risk_tier', 'change_domains', 'protected_changes')):
+        # A sealed DONE keeps its completed classification; release then requires the completed tree.
+        sealed = phase == 'release' and state.get('completion_seal')
+        classified = None if sealed else classify(root, config, state)
+        if classified and (classified['errors'] or any(state[key] != classified[key] for key in
+                                                       ('risk_tier', 'change_domains', 'protected_changes'))):
             raise PipelineError('Approval requirements need current task classification; reconcile the changed scope first')
         request = _request(root, config, state, phase, check_id, allow_unneeded=True, trust_path=trust_path)
         if request is None:
@@ -95,7 +98,8 @@ def verify_receipt(root, config, state, record, phase, snapshot=None, run_id=Non
     if config.get('approval_policy', 'strict') != 'standard':
         raise PipelineError('Strict policy requires signatures, not a user receipt')
     validate_schema(root, 'user-approval', record)
-    if parse_time(record['recorded_utc']) > parse_time(utc_now()):
+    from .approval import evaluation_time
+    if parse_time(record['recorded_utc']) > parse_time(evaluation_time()):
         raise PipelineError('User approval receipt is dated in the future')
     payload = record['payload']
     if state.get('fingerprint') != source_fingerprint(root, config, state):

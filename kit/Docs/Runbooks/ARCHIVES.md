@@ -14,12 +14,19 @@ one connected group; all must be completed and current. An unfinished connected
 phase blocks archive without moving anything. Omitting `--include-members` rejects
 an operation that would leave a phase referring to a moved member.
 
+Every archived task folder also holds `EVIDENCE.zip`, because the report root is
+not committed: each of the task's Baseline, completion and Release run summaries,
+every artifact those summaries hash-bind (checked against its hash before it is
+copied), and `pipeline.config.yaml` at archive time. `ARCHIVE.json` records the
+bundle hash and each summary hash. A changed artifact blocks the archive.
+
 Member archive metadata version 3.0 retains the historical completion snapshot and
 run IDs, and separately records `phase_coverage` with the current Phase summary
 hash, revision, exact member binding and integrated source digest. Its SOURCE.zip
 contains that verified integrated source, not the member's old checkout. Phase and
 ordinary archives retain version 2.0 exact completion-source bundles. Original run
-logs, reviews and approval receipts remain in their original reports/documents.
+reports also remain under the report root; reviews and approval receipts remain in
+their task documents.
 
 A queue referring to any archive target must be complete, have no active lease,
 and satisfy its requested completion gate. Its unchanged checkpoint moves to

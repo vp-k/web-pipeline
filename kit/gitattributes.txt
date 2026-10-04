@@ -1,0 +1,5 @@
+# web-pipeline: receipts and task fingerprints hash these files, so every checkout keeps LF.
+web_pipeline/** text=auto eol=lf
+Schemas/** text=auto eol=lf
+Docs/** text=auto eol=lf
+pipeline.config.yaml text=auto eol=lf

@@ -98,6 +98,19 @@ its old path rules. With the user's agreement:
 3. Replacing an old broad glob such as `*auth*` with the word rules removes a rule.
    Show the difference and let the user decide.
 
+## Upgrading to 2.16
+
+- Task fingerprints became version 2. Tasks prepared before 2.16 keep version 1
+  and reach DONE without a completion seal, so they keep the earlier
+  current-source validation. Their next explicit revision moves them to version 2.
+  Do not revise active work only to switch.
+- New adoption merges line-ending rules into `.gitattributes`. An upgrade does not
+  edit `.gitattributes`; with the user's agreement, append the lines of the kit's
+  `gitattributes.txt` that are missing.
+- Lean projects can keep a feature backlog and run a scoped Task check; copy the
+  new `Docs/Runbooks/LEAN.md`. `verification.scopes` in a lean project may leave
+  `Phase` checks empty.
+
 ## Planning records after an upgrade
 
 Tasks created or explicitly revised by the current engine carry

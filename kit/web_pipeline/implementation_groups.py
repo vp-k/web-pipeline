@@ -114,7 +114,7 @@ def waits(root, config, queue, trust=None):
                         result[pending[0]] = f'Group member is not ready to implement: {name}'
                         break
                     validate_run(root, config, state, state['baseline_run'], 'Baseline',
-                                 require_current=True, trust_path=trust)
+                                 require_current=True, trust_path=trust, historical=True)
     reserved = (active or eligible)
     if reserved:
         group = reserved[0]
@@ -143,6 +143,10 @@ def validate_action(root, config, queue, task_id, trust=None):
             if (not state['fingerprint'] or not state['implementer'] or
                     source_fingerprint(root, config, state) != state['fingerprint']):
                 raise PipelineError(f'Group member prepared scope is stale: {name}')
+            if state['status'] == 'DONE' and state.get('completion_seal'):
+                # A sealed member is history: its records bind it, not the group's later edits.
+                historical_completion(root, config, state, trust)
+                continue
             classified = classify(root, config, state)
             errors = classified['errors'] + document_errors(root, state, for_done=state['status'] == 'DONE')
             if errors or any(state[key] != classified[key] for key in
@@ -152,5 +156,5 @@ def validate_action(root, config, queue, task_id, trust=None):
                 historical_completion(root, config, state, trust)
             else:
                 validate_run(root, config, state, state['baseline_run'], 'Baseline',
-                             require_current=False, trust_path=trust)
+                             require_current=False, trust_path=trust, historical=True)
                 validate_approvals(root, config, state, _roles(config, state, 'design'), 'design', trust)

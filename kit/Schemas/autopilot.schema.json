@@ -48,7 +48,7 @@
       "properties": {
         "sequence": {"type": "integer", "minimum": 1},
         "at": {"type": "string", "format": "date-time"},
-        "kind": {"enum": ["START", "SELECT", "EXECUTED", "WAIT", "WAITING", "DECISION", "RECOVER", "RETRY", "RECONCILE", "RENEW", "LEASE_END"]},
+        "kind": {"enum": ["START", "SELECT", "EXECUTED", "WAIT", "WAITING", "DECISION", "RECOVER", "RETRY", "RECONCILE", "RENEW", "LEASE_END", "COMMIT_POINT"]},
         "task_id": {"type": ["string", "null"]}
       }
     }}

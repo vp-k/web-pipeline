@@ -372,7 +372,7 @@ boundaries:
 
 scopes:
 - `boundaries` 가 있으면 component id 와 `paths` 가 두 모델에서 정확히 같아야 한다. `depends_on` 은 달라도 된다: scopes 의 `"web" depends_on ["api"]` 는 "api 가 바뀌면 web 의 Task check 도 실행".
-- component `domains` ⊆ `supported_domains`. scopes 의 모든 check 는 enabled + `Full` 프로필. `phase_checks` 최소 1개.
+- component `domains` ⊆ `supported_domains`. scopes 의 모든 check 는 enabled + `Full` 프로필. tracked 프로젝트는 `phase_checks` 와 component `Phase` check 가 최소 1개씩 필요하다. lean 프로젝트는 Phase run 이 없어 비워도 된다.
 - 설정하면 완료 프로필이 `Full` 에서 `Task`/`Phase` 로 바뀌고 `SCOPE.json` 을 쓸 수 있다. 다음 경우 프로젝트 전체로 확장된다(`verification-plan` 의 `reasons`): T4(Fast 제외), `broad_paths`, 내장 broad 경로(`pipeline.config.yaml`, `package.json`, `pyproject.toml`, `requirements*.txt`, `*.lock`/`*-lock.json`/`*-lock.yaml`/`*.lockb`/`*npm-shrinkwrap.json`, `*go.mod`/`*go.sum`, `web_pipeline/*`, `Schemas/*`/`schemas/*`, `Scripts/*`/`scripts/*`, `.github/*`, `Docs/Governance/*`, `Docs/Architecture/*`, `AGENTS.md`, `PIPELINE.md`, `CLAUDE.md`), 그리고 **어느 component 에도 속하지 않거나 둘 이상에 속하는 변경 경로**(`README.md`, `contracts/*` 등). 확장은 오류가 아니다. T3·보호 변경은 확장 대신 그 task 도메인·보호 규칙의 check 를 Baseline/Task/Phase 에 더한다.
 
 ## 5. 출력 경로
@@ -429,4 +429,4 @@ rule 하나는 `pattern`, `match`, 선택적인 `except`, `notice` 를 가진다
 
 - `.ts`, `.js`, `.py` 소스는 프론트와 백엔드 어느 쪽인지 경로로만 안다. 위처럼 프로젝트 구조에 맞는 rule 을 더한다. rule 이 없어도 `new --domains` 로 선언한 도메인은 유지된다.
 - `protected_changes` 값은 `risk.protected_rules` 의 키여야 한다.
-- `pipeline.config.yaml` 편집은 T0 notice 다. 대신 lean `check` 가 이전 커밋과 비교한다. 꺼지거나 빠진 check, 줄어든 요구, 빠진 보호 rule 이 `weakened_checks` 로 나오고 사용자 결정이 필요하다. `tracked` 에서는 편집하면 prepare 된 task 의 fingerprint 가 stale 이 되어 `revise` 가 필요하다. 실패하는 구현을 통과시키려고 requirements·`test_report` 한도·rule 을 낮추지 않는다.
+- `pipeline.config.yaml` 편집은 T0 notice 다. 대신 lean `check` 가 이전 커밋과 비교한다. 꺼지거나 빠진 check, 줄어든 요구, 빠진 보호 rule 이 `weakened_checks` 로 나오고 사용자 결정이 필요하다. `tracked` 에서 설정 편집은 fingerprint 를 바꾸지 않는다. 예외는 승인 규칙이다. `approval_policy` 와 task 보호 변경의 `tier`·`roles` 를 바꾸면 그 task 는 `revise` 가 필요하다. 검증 정책이 바뀌면 진행 중 task 의 completion run 만 다시 돌린다. DONE task 와 시작된 작업의 Baseline 은 기록된 판정을 유지한다. 실패하는 구현을 통과시키려고 requirements·`test_report` 한도·rule 을 낮추지 않는다.

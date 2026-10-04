@@ -16,13 +16,29 @@ from typing import Any
 from .common import PipelineError, atomic_json, load_config, missing_checks, output_exclusions, safe_path, utc_now
 
 WORKFLOWS = ('lean', 'tracked')
-CHECK_PROFILES = ('Fast', 'Full')
+CHECK_PROFILES = ('Fast', 'Task', 'Full')
 TRACKED_TIER = 'T4'
 
 
 def workflow(config: dict[str, Any]) -> str:
     """Configs written before 2.14 have no key and keep the tracked workflow."""
     return config.get('workflow', 'tracked')
+
+
+def default_profile(config: dict[str, Any]) -> str:
+    """With declared components a pre-commit check covers what changed; without them, everything."""
+    from .scopes import enabled
+    return 'Task' if enabled(config) else 'Full'
+
+
+def _scoped(root: Path, config: dict[str, Any], risk: dict[str, Any]) -> dict[str, Any]:
+    """The tracked Task selection for the changed paths: affected components, their consumers,
+    contracts and the dependency check. Broad, unowned or ambiguous paths and T4 select the project."""
+    from .scopes import selection
+    state = {'task_id': None, 'risk_tier': risk['risk_tier'], 'protected_changes': risk['protected_changes'],
+             'change_domains': risk['change_domains']}
+    return selection(root, config, state, 'Task', changed_paths=risk['changed_paths'],
+                     scope={'level': 'task', 'components': [], 'members': []}, task_checks=())
 
 
 def _table(results: list[dict[str, Any]], missing: list[str]) -> str:
@@ -108,21 +124,37 @@ def _weakened(root: Path, config: dict[str, Any], base_ref: str) -> list[str]:
     return config_weakening(before, config) if isinstance(before, dict) else []
 
 
-def check(root: Path, profile: str = 'Full', base_ref: str = 'HEAD') -> dict[str, Any]:
-    if profile not in CHECK_PROFILES:
-        raise PipelineError(f'check profile must be one of {", ".join(CHECK_PROFILES)}')
+def check(root: Path, profile: str | None = None, base_ref: str = 'HEAD') -> dict[str, Any]:
     from .policy import _changed_paths, path_risk
     from .runner import _execute
+    from .scopes import enabled
     config = load_config(root)
+    profile = profile or default_profile(config)
+    if profile not in CHECK_PROFILES:
+        raise PipelineError(f'check profile must be one of {", ".join(CHECK_PROFILES)}')
+    if profile == 'Task' and not enabled(config):
+        raise PipelineError('check --profile Task needs components in verification.scopes '
+                            '(Docs/Runbooks/VERIFICATION_SCOPES.md); use Full without them')
     paths, diff_errors = _changed_paths(root, base_ref)
     risk = path_risk(root, config, paths)
     domains = set(config['project']['supported_domains']) | set(risk['change_domains'])
-    commands = selected_commands(config, profile, domains)
-    missing = missing_checks(config, sorted(domains), (profile,), risk['protected_changes'])
+    scope = None
+    if profile == 'Task':
+        plan = _scoped(root, config, risk)
+        scope = {'level': plan['level'], 'components': plan['components'], 'reasons': plan['reasons']}
+    if scope and scope['level'] != 'project':
+        wanted = set(plan['checks'])
+        commands = [item for item in config['verification']['commands'] if item['enabled'] and item['id'] in wanted]
+        missing = sorted(wanted - {item['id'] for item in commands})
+    else:
+        # A project-wide Task check is the Full check.
+        selected = 'Full' if scope else profile
+        commands = selected_commands(config, selected, domains)
+        missing = missing_checks(config, sorted(domains), (selected,), risk['protected_changes'])
     weakened = _weakened(root, config, base_ref)
     tracked = risk['risk_tier'] == TRACKED_TIER
     result: dict[str, Any] = {
-        'workflow': workflow(config), 'profile': profile, 'base_ref': base_ref,
+        'workflow': workflow(config), 'profile': profile, 'scope': scope, 'base_ref': base_ref,
         'changed_paths': risk['changed_paths'], 'risk_tier': risk['risk_tier'],
         'change_domains': risk['change_domains'], 'decisions': risk['protected_changes'],
         'tracked_required': tracked, 'notices': risk['notices'], 'weakened_checks': weakened,
@@ -149,6 +181,9 @@ def check(root: Path, profile: str = 'Full', base_ref: str = 'HEAD') -> dict[str
                 + '; ask once if not, then commit with the table and the decision.')
     else:
         hint = 'Checks pass: get one fresh-context review, then commit with the table.'
+    if not failed and scope and scope['level'] != 'project':
+        hint += (' This check covered ' + ', '.join(scope['components'])
+                 + ' and their consumers; run check --profile Full before a release or merge.')
     summary = {**result, 'status': status, 'run_id': run_id, 'started_at': started, 'finished_at': utc_now(),
                'checks': results, 'commit_table': table, 'next': hint}
     atomic_json(run_dir / 'summary.json', summary)

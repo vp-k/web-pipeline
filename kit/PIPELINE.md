@@ -8,7 +8,7 @@ Start every session with `python -m web_pipeline status`. It is read-only and re
 
 `workflow` in `pipeline.config.yaml` selects how ordinary changes are tracked. A missing value means `tracked`.
 
-- `lean`: follow [LEAN.md](Docs/Runbooks/LEAN.md). Build one feature with its tests, run `python -m web_pipeline check` before each commit, get one fresh-context review and put the check table in the commit message. Do not create `Docs/Work` tasks for ordinary work. Lean starts with the checks that are enabled and reports the rest as `missing_checks`.
+- `lean`: follow [LEAN.md](Docs/Runbooks/LEAN.md). Build one feature with its tests, run `python -m web_pipeline check` before each commit, get one fresh-context review and put the check table in the commit message. For a whole project, keep the features in build order with `feature add`, `feature next` and `feature done`. Do not create `Docs/Work` tasks for ordinary work. Lean starts with the checks that are enabled and reports the rest as `missing_checks`.
 - `tracked`: every change is a task under `Docs/Work` and follows the Flow below.
 - In both modes, payment, deployment, release, production operations and destructive migrations use a tracked task.
 - Rules 4 to 9 below apply in both modes. Rules 1 to 3, rule 10 and the Flow apply to tracked tasks.
@@ -36,6 +36,10 @@ Start every session with `python -m web_pipeline status`. It is read-only and re
 - With `verification.scopes`, ordinary tasks complete with Task and connected feature groups with a tracked Phase task (`Docs/Runbooks/VERIFICATION_SCOPES.md`). Unknown impact, broad inputs and T4 work expand to project-wide checks. Protected/T3 work adds its own domain and protected checks without running every other suite. Project-wide Full is not required after every small edit.
 - Local self-review (`review`) covers standard, unprotected T1/T2 work only. Use a fresh-context reviewer when available; otherwise perform a separate local review and identify it as self-review; write the decision JSON inside `Docs/Work/<TaskId>/`.
 - Release is a separate T4 gate and is never implied by implementation completion.
+- `new` pins `base_ref` to the current commit unless `--base-ref` names another; `prepare --base-ref` sets or repairs it while the task is a DRAFT.
+- DONE is history. The DONE transition records a completion seal of the approval rules, cited planning documents and boundary contracts the task was completed against; later work in the shared tree does not make it stale. The merge gate stays strict: integrated work still needs a current Phase run.
+- `revise` carries the task's `CLARIFICATIONS.json` and its ADRs into the new revision and lists them as `carried` in `REVISION_HISTORY`. Update what changed; answers stay.
+- `archive` moves a DONE task to `Docs/Archive/` with `EVIDENCE.zip`: the run summaries, the hash-checked artifacts and the configuration they ran under.
 - Infrastructure, hosting, deployment and production operations belong to the user. Keep them out of plans, queues and completion criteria unless explicitly requested; record runtime requirements needed for handoff.
 - Sequential work uses the existing checkout. Do not create a branch or worktree, or require a merge, only because the pipeline is running. A merge-readiness check performs no Git merge.
 - A failed required gate or Git command blocks dependent progress, not authorized repair: keep the error, diagnose and resolve it in the same request before unrelated work. Never hide a nonzero exit, discard changes or start a replacement queue to get around a failure.

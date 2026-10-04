@@ -5,6 +5,7 @@
 ## 큐 만들기 또는 재개
 
 - `Docs/Work/AUTOPILOT.json`이 이미 있으면 `python -m web_pipeline loop status`로 확인하고 **재개**한다. 새로 시작하지 않는다.
+- 새 큐를 시작하기 전에 커밋 방식을 한 번 묻는다. task마다 커밋할지, 끝에 한 번에 커밋할지다. 이 답은 큐가 끝날 때까지 쓴다.
 - 범위 안의 DRAFT 작업과 문서를 만든다. 없는 기능을 지어내지 않는다.
 - 새로 도입한 프로젝트의 첫 구현은 [adoption.md](adoption.md)의 "첫 기능을 끝까지"를 먼저 따른다. 첫 기능과 선행 작업만 큐에 넣거나, 이후 기능이 첫 기능의 Phase/작업에 `depends_on`하도록 한다.
 
@@ -42,7 +43,7 @@ python -m web_pipeline loop next
    | --- | --- | --- |
    | `PLAN` | 문서·계약·수용 기준 매핑·등급에 필요한 ADR 초안 작성 후 CLI로 `prepare`. Baseline 전에 제품 코드를 바꾸지 않는다 | `prepared` |
    | `IMPLEMENT` | 준비된 범위만 구현 | `implemented` |
-   | `REPAIR` | `loop status`의 최신 실패 리포트·리뷰 결정을 읽고 가설을 세워 고친다. 테스트와 범위를 보존한다. 같은 명령을 그냥 다시 돌리지 않는다 | `implemented` |
+   | `REPAIR` | 응답의 `repair`부터 읽는다. 실패한 check와 로그, 또는 변경을 요구한 리뷰 결정이 들어 있다. 가설을 세워 고치고 테스트와 범위를 보존한다. 같은 명령을 그냥 다시 돌리지 않는다 | `implemented` |
    | `REVIEW` | 소스를 고치지 않고 코드·수용 기준·완료 증거를 검토한다. 사용 가능한 `pipeline-reviewer`에 맡긴다. 기능이 없으면 별도 로컬 검토를 수행하고 자체 리뷰로 기록한다 | `reviewed` 또는 `changes_required` |
 
    진행할 수 없으면 정직한 사유와 함께 `blocked`.
@@ -50,6 +51,9 @@ python -m web_pipeline loop next
 4. `python -m web_pipeline loop complete --token <token> --outcome implemented --decision Docs/Work/WEB-101/decision-001.json`
    outcome은 작업을 PASS나 DONE으로 만들지 않는다. 엔진이 선행 조건을 검증한다.
 5. `CONTINUE`면 **턴을 끝내거나 계속할지 묻지 말고** 바로 `loop next`. 짧은 진행 보고만 남긴다. 실패 수리, 리뷰 재작업, 다음 작업 선택은 모두 같은 요청의 일부다.
+6. `loop next` 응답에 `commit_point`가 있으면 DONE task만 작업 트리에 있는 시점이다. 사용자가 task별 커밋을 원했으면 `git status`를 확인하고 `message`로 커밋한 뒤 계속한다. 같은 revision은 한 번만 제안된다.
+   - 커밋은 task 증거를 바꾸지 않는다. `base_ref`는 고정된 커밋이고 tree digest는 파일 내용만 본다.
+   - 다른 task가 구현을 시작했으면 제안이 나오지 않는다. 섞인 트리를 커밋하지 않는다.
 
 standard의 보호되지 않은 T1/T2에서 `reviewed`는 소스에 묶인 로컬 리뷰를 남겨 로컬 리뷰 게이트를 충족한다. 이는 자기 리뷰·자문 증거이며 독립된 사람 승인이 아니다. 보호 변경·T3/T4는 별도의 사용자 영수증(standard) 또는 서명(strict)이 필요하다 → [approvals.md](approvals.md).
 
@@ -67,7 +71,9 @@ standard의 보호되지 않은 T1/T2에서 `reviewed`는 소스에 묶인 로�
 
 - 승인이나 외부 조건이 충족되면 확인한 뒤 `loop retry --task <TaskId> --reason "..."` 후 `next`. retry는 카운터를 초기화하지 않는다.
 - 사용자가 범위를 바꾸면 `revise` 후 `loop reconcile --task <TaskId> --reason "..."`. 큐의 리비전을 몰래 바꾸지 않는다.
-- 다른 작업이 공유 소스를 바꾸면 이전 REVIEW/DONE 증거가 낡을 수 있다. 큐는 닫힌 쪽으로 실패한다. 옛 승인을 재사용하지 말고 재검증한다.
+- 다른 작업이 공유 소스를 바꾸면 REVIEW 단계의 증거는 낡을 수 있다. 큐는 닫힌 쪽으로 실패한다. 옛 승인을 재사용하지 말고 재검증한다.
+- DONE은 이력이다. 완료 봉인이 그 시점의 승인 규칙과 인용 문서를 기록하므로 이후 변경으로 낡지 않는다.
+- merge gate는 그대로 엄격하다. 여러 task를 합친 결과는 현재 트리의 Phase 실행으로 확인한다.
 
 ## 복구 (`BUSY`, 세션이 죽은 뒤)
 

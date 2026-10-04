@@ -1,6 +1,8 @@
 from __future__ import annotations
 
 import base64
+from contextlib import contextmanager
+from contextvars import ContextVar
 import json
 import os
 from pathlib import Path
@@ -10,6 +12,22 @@ from cryptography.exceptions import InvalidSignature
 from cryptography.hazmat.primitives.asymmetric.ed25519 import Ed25519PublicKey
 
 from .common import PipelineError, hash_file, parse_time, safe_path, utc_now, validate_schema
+
+_AS_OF: ContextVar[str | None] = ContextVar('approval_as_of', default=None)
+
+
+@contextmanager
+def as_of(moment: str):
+    """Judge approvals at a recorded moment: a sealed DONE was approved when it was completed."""
+    token = _AS_OF.set(moment)
+    try:
+        yield
+    finally:
+        _AS_OF.reset(token)
+
+
+def evaluation_time() -> str:
+    return _AS_OF.get() or utc_now()
 
 
 def _trust(root: Path, trust_path: str | Path | None) -> dict[str, Any]:
@@ -56,7 +74,7 @@ def _verify_record(root: Path, state: dict[str, Any], rel: str, trust: dict[str,
         key.verify(base64.b64decode(record["signature"], validate=True), message)
     except (ValueError, InvalidSignature) as exc:
         raise PipelineError(f"invalid approval signature: {rel}") from exc
-    now = parse_time(utc_now())
+    now = parse_time(evaluation_time())
     if parse_time(payload["approved_utc"]) > now or parse_time(payload["expires_utc"]) <= now:
         raise PipelineError(f"approval is not currently valid: {rel}")
     _validate_binding(root, state, payload, phase, snapshot, run_id, rel)

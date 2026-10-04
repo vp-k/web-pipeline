@@ -1,0 +1,100 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "features",
+  "type": "object",
+  "additionalProperties": false,
+  "properties": {
+    "schema_version": {
+      "const": "1.0"
+    },
+    "features": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {
+          "id": {
+            "type": "string",
+            "pattern": "^F-[0-9]{3,}$"
+          },
+          "title": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 200
+          },
+          "status": {
+            "enum": [
+              "TODO",
+              "ACTIVE",
+              "DONE"
+            ]
+          },
+          "added_utc": {
+            "type": "string",
+            "minLength": 1
+          },
+          "started_utc": {
+            "type": "string",
+            "minLength": 1
+          },
+          "done_utc": {
+            "type": "string",
+            "minLength": 1
+          },
+          "check_run": {
+            "type": "string",
+            "minLength": 1
+          },
+          "check_profile": {
+            "enum": [
+              "Task",
+              "Full"
+            ]
+          }
+        },
+        "required": [
+          "id",
+          "title",
+          "status",
+          "added_utc"
+        ],
+        "allOf": [
+          {
+            "if": {
+              "properties": {
+                "status": {
+                  "const": "TODO"
+                }
+              }
+            },
+            "else": {
+              "required": [
+                "started_utc"
+              ]
+            }
+          },
+          {
+            "if": {
+              "properties": {
+                "status": {
+                  "const": "DONE"
+                }
+              }
+            },
+            "then": {
+              "required": [
+                "done_utc",
+                "check_run",
+                "check_profile"
+              ]
+            }
+          }
+        ]
+      }
+    }
+  },
+  "required": [
+    "schema_version",
+    "features"
+  ]
+}

@@ -1,5 +1,29 @@
 # Changelog
 
+## 2.16.0 — 프로젝트 전체를 끝까지
+
+설치본으로 앱 하나를 처음부터 Release까지 진행해 본 결과를 반영했다.
+
+버그 수정:
+
+- `new`가 `--base-ref` 없이 현재 커밋을 기준으로 잡는다. DRAFT task는 `prepare --base-ref`로 기준을 정하거나 고친다. 이전에는 기준 없는 task를 버리고 새 ID로 다시 만들어야 했다.
+- 도입이 `.gitattributes`에 엔진, 스키마, 문서, 설정의 LF 고정 줄을 넣는다. upgrade, restore, doctor는 CRLF로 받은 사본을 내용으로 비교한다. 실제 편집은 계속 막는다.
+- `prepare`가 task에 필요한 개발 check가 꺼져 있으면 실패한다. T4에 필요한 Release check가 꺼져 있으면 경고한다. 이전에는 완료 직전 run에서야 `NOT_RUN`으로 드러났다.
+- 큐의 REPAIR 액션이 `repair`로 원인을 준다. 실패한 run의 check별 사유, 종료 코드, 로그, 또는 수정을 요구한 리뷰 결정이다.
+- `prepare`가 revise 사유를 `blockers`에서 지운다. 사유는 `REVISION_HISTORY`에 남는다.
+
+설계 변경:
+
+- lean 기능 목록을 추가했다. `feature add`, `list`, `next`, `done`이 `Docs/Work/FEATURES.json`에 순서와 진척을 남긴다. `feature done`은 기능 시작 뒤의 Task 또는 Full check PASS가 필요하다.
+- lean `check`의 기본 프로필이 scopes가 있으면 `Task`다. 바뀐 component와 그 소비자의 check만 돈다. broad 경로, 소유자 없는 경로, T4는 Full과 같은 범위로 넓힌다. 결과에 `scope`가 붙는다.
+- lean 프로젝트는 scopes의 `Phase` check와 `phase_checks`를 비워 둘 수 있다. tracked는 계속 필요하다.
+- fingerprint v2: task 문서와 범위, 승인 규칙, CLARIFICATIONS가 인용한 문서, 경계 계약만 묶는다. 일반 설정 변경은 task를 stale로 만들지 않는다. 대신 완료 run을 다시 돌려야 한다.
+- DONE은 이력이다. DONE 전이 때 completion seal을 남기고, 이후 프로젝트 변경은 DONE task를 다시 열지 않는다. merge gate는 그대로 엄격하다.
+- `revise`가 CLARIFICATIONS와 ADR을 새 revision으로 옮기고 `carried`로 기록한다. 답한 질문과 결정을 다시 받지 않는다.
+- 큐가 커밋 시점을 알린다. DONE task만 트리에 있고 다음 task가 구현을 시작하기 전이면 `loop next`가 `commit_point`를 준다.
+- archive가 `EVIDENCE.zip`을 남긴다. run 요약, 해시를 확인한 산출물, 그 시점 설정이 들어간다.
+- 2.16 전에 준비한 task는 revise 전까지 v1 fingerprint를 유지하고 seal이 없다. 업그레이드는 `.gitattributes`를 고치지 않는다. `UPDATES.md`를 따른다.
+
 ## 2.15.1 — 지침 정리
 
 - `PIPELINE.md`의 증거 절이 엔진이 만들지도 읽지도 않는 `VERIFICATION.md`를 가리켰다. 수용 기준은 `ACCEPTANCE.json`의 check ID로 증명한다고 고쳤다. 쓰이지 않던 `Templates/VERIFICATION_TEMPLATE.md`는 지웠다. 이미 도입된 프로젝트의 사본은 업그레이드가 건드리지 않는다.

@@ -39,14 +39,16 @@ description: Adopt, configure, operate or audit the Web Development Pipeline - l
 **lean** (새 도입 기본값):
 
 1. 사용 가능한 기능 하나가 작업 단위다. 스키마, 시드, 타입, API, UI를 따로 쪼개지 않는다.
+   - 프로젝트 전체를 만들 때는 `feature add`로 기능 목록을 만든 순서대로 쌓는다. `feature next`로 하나씩 시작하고 `feature done`으로 닫는다.
 2. 테스트는 구현과 함께 쓴다.
 3. 커밋 전마다 `python -m web_pipeline check`를 돌린다. 실패하면 먼저 고친다. 구현 중 반복은 `check --profile Fast`.
+   - `verification.scopes`에 컴포넌트가 있으면 기본 check는 Task다. 바뀐 컴포넌트와 소비자만 돌고, 넓은 변경은 전체로 넓어진다. 릴리스나 병합 전에는 Full을 한 번 돌린다.
 4. check는 켜진 실제 check로 시작한다. 켜지지 않은 필수 check는 `missing_checks`와 표의 `Not enabled` 줄로 남는다. 실제 check가 하나도 없으면 FAIL이다.
 5. 기능마다 `pipeline-reviewer`로 새 컨텍스트 리뷰를 한 번 받는다. check의 `notices`도 리뷰에 넘긴다.
 6. 커밋 메시지 본문에 check 출력의 `commit_table`을 넣는다.
 7. check의 `decisions`에 있는 스키마, 인증, 개인정보, 보안 결정은 한 번에 묶어 묻는다. `weakened_checks`도 같이 묻는다. 답은 커밋 메시지에 남긴다.
 8. `tracked_required: true`거나 결제, 배포, Release, 운영, 파괴적 마이그레이션 작업이면 추적 task를 쓴다. check가 표시하지 않아도 의미상 T4이거나 사용자가 감사 증거를 요청하면 같다. 기준은 프로젝트의 `Docs/Runbooks/LEAN.md`다.
-9. `Docs/Work` 폴더와 절차 메모를 만들지 않는다.
+9. `Docs/Work`에는 기능 목록 `FEATURES.json`만 둔다. task 폴더와 절차 메모를 만들지 않는다.
 
 **tracked**: 모든 변경이 `Docs/Work/<TaskId>/` task다. 아래 작업 리듬과 절대 규칙을 따른다.
 

@@ -239,6 +239,13 @@ class ScopeTests(unittest.TestCase):
         bad['verification']['scopes']['components'][0]['checks']['Task'] = ['disabled-check']
         with self.assertRaises(PipelineError):
             scopes.validate_config(self.root, bad)
+        # Only lean, which has no Phase, may leave the Phase checks empty.
+        bad = copy.deepcopy(self.config)
+        bad['verification']['scopes']['components'][0]['checks']['Phase'] = []
+        with self.assertRaisesRegex(PipelineError, 'Phase checks'):
+            scopes.validate_config(self.root, bad)
+        bad['workflow'] = 'lean'
+        scopes.validate_config(self.root, bad)
         self.start()
         self.scope(self.task, ['b'])
         with self.assertRaisesRegex(PipelineError, 'fingerprint'):

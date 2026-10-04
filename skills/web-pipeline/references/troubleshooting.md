@@ -36,11 +36,12 @@
 | `unfilled template placeholder in required task document: <name>` | `TBD`/`TODO`/`UNSET` 만 있는 줄 | 그 줄을 실제 내용으로 교체 |
 | `ACCEPTANCE.json must contain populated criteria with checks` / `acceptance references unknown checks: [...]` | 기준에 check 가 없거나 config 에 없는 id | 각 criterion 의 `checks` 를 `verification.commands` 의 id 로 |
 | `Acceptance check <id> must be enabled and executable in Full` | 참조 check 가 disabled 이거나 `profiles` 에 `Full` 없음 | config 에서 enable + `Full` 추가 |
-| `project tasks require an explicit Git base_ref` | `new` 시 `--base-ref` 누락 | `base_ref` 를 바꾸는 명령은 없다. 다른 id 로 `python -m web_pipeline new --task <id2> ... --base-ref <ref>` |
-| `cannot inspect diff from base_ref '<ref>': ...` | ref 가 저장소에 없음 | `git rev-parse <ref>` 로 확인 후 fetch. ref 자체가 틀렸으면 올바른 `--base-ref` 로 새 task |
+| `base_ref defaults to the current commit, but this repository has no commit yet` | 커밋이 하나도 없는 저장소에서 `new` | 엔진·설정·문서를 한 번 커밋한 뒤 `new` |
+| `project tasks require a Git base_ref: rerun prepare with --base-ref <revision>` | 옛 task 에 `base_ref` 가 없음 | DRAFT 에서 `prepare --task <id> --base-ref <rev>`. 보통 task 를 시작한 커밋 |
+| `cannot inspect diff from base_ref '<ref>': ...` / `base_ref '<ref>' does not name a commit in this repository` | ref 가 저장소에 없음 | `git rev-parse <ref>` 로 확인 후 fetch. ref 자체가 틀렸으면 DRAFT 에서 `prepare --base-ref <rev>`, 그 뒤 상태면 `revise` 후 같은 방법 |
 | `base_ref '<ref>' must be a git revision, not an option` | `-`로 시작하는 값(`--output=…` 등)을 base_ref 로 넘김 | 커밋 해시·브랜치·태그만 쓴다 |
 | `only DRAFT tasks can be prepared; revise the task first` | DRAFT 가 아님 | `python -m web_pipeline revise --task <id> --reason "<why>"` → `prepare` |
-| `task fingerprint is stale; revise the task` / `<id>: source fingerprint is stale` / `task must be prepared with a current fingerprint; revise after changing scope or docs` | `prepare` 이후 config, `sources` 문서, task 문서, ADR, 분류(path rule 승격 포함)가 변함 | 의도한 변경이면 `revise` → `prepare` → Baseline 부터. 의도하지 않았으면 그 파일을 되돌린다 |
+| `task fingerprint is stale; revise the task` / `<id>: source fingerprint is stale` / `task must be prepared with a current fingerprint; revise after changing scope or docs` | `prepare` 이후 task 문서, ADR, `CLARIFICATIONS.json` 이 인용한 문서, 경계 계약, 승인 규칙(`approval_policy`, 보호 rule 의 `tier`·`roles`), 분류(path rule 승격 포함)가 변함. 그 밖의 config 편집은 무관 | 의도한 변경이면 `revise` → `prepare` → Baseline 부터. 의도하지 않았으면 그 파일을 되돌린다 |
 | `READY requires a Baseline run` / `Baseline run is required` | Baseline 미캡처 | DRAFT 에서 `python -m web_pipeline run --task <id> --profile Baseline` |
 | `Baseline is frozen after DRAFT; revise the task before recapturing it` | DRAFT 밖에서 Baseline 시도 | 변경 후 재캡처는 금지. 정말 필요하면 변경을 분리(stash/branch)하고 `revise` |
 | `<Profile> requires IN_PROGRESS or VERIFYING state` / `<Profile> is forbidden while task is DRAFT` | 상태와 프로필 불일치 | `status --task <id>` 의 `next` 를 따른다 |
@@ -68,7 +69,7 @@
 | `frontend completion/Release requires screenshots/manifest.json` | frontend task 의 completion run 에 manifest 없음 | check 가 `$PIPELINE_EVIDENCE_DIR/screenshots/manifest.json` 에 `[{kind,path,width,height,url}]` 기록 |
 | `both desktop and mobile screenshots are required` / `wrong declared <kind> screenshot dimensions` / `wrong decoded screenshot dimensions: ` | 크기·종류 불일치 | `desktop` 1440x900, `mobile` 390x844 (config `evidence`) 로 실제 PNG 캡처 |
 | `Pillow is required to validate screenshot evidence` | 의존성 누락 | `python -m pip install -r requirements-pipeline.txt` |
-| `run code snapshot is stale` / `run task/source fingerprint is stale` / `verification policy changed since run` | run 이후 코드·문서·config 가 변함 | 코드만 변했으면 completion 프로필 재실행. fingerprint/policy 면 `revise` |
+| `run code snapshot is stale` / `run task/source fingerprint is stale` / `verification policy changed since run` | run 이후 코드·task 문서·검증 정책이 변함 | 코드나 검증 정책만 변했으면 completion 프로필 재실행. fingerprint 면 `revise`. DONE task 는 봉인으로 판정하므로 이 오류가 나지 않는다 |
 | `Completion requires <expected> or Full evidence` / `Completion run is required` | `full_run` 이 없거나 잘못된 프로필 | `verification-plan --task <id>` 의 프로필 또는 `Full` 실행 |
 | `acceptance criteria lack PASS evidence: ` / `acceptance criteria reference checks absent from evidence: ` | 기준의 check 가 run 에서 PASS 가 아님 | 해당 check 를 통과시키고 completion run 재실행 |
 | `artifact integrity failure: <rel>` / `check log is not hash-bound` | `Reports/Pipeline/<run>` 파일이 수정·삭제됨 | 증거는 복구 불가. 새 run 을 실행 |
@@ -116,7 +117,7 @@
 
 ## Windows
 
-- **CRLF**: tree digest 와 증거는 바이트 해시다. checkout 마다 줄바꿈이 바뀌면 `run code snapshot is stale` 가 난다 → `git config core.autocrlf false` + `.gitattributes` 에 `* text=auto eol=lf`.
+- **CRLF**: fingerprint, 승인 receipt, 엔진 manifest 는 줄바꿈을 무시한다. 도입은 엔진·`Docs`·설정에 `eol=lf` 를 `.gitattributes` 에 병합한다. 제품 코드의 tree digest 는 여전히 바이트 해시다. checkout 마다 줄바꿈이 바뀌면 `run code snapshot is stale` 가 난다 → `git config core.autocrlf false` + `.gitattributes` 에 `* text=auto eol=lf`.
 - **BOM**: 엔진의 모든 JSON/텍스트 읽기(config, STATE.md, `ACCEPTANCE.json`, `CLARIFICATIONS.json`, `SCOPE.json`, ADR, `--plan`/`--decision`/`--record`)가 UTF-8 BOM 을 허용한다(2.11+). 다만 BOM 은 tree digest 에 포함되는 바이트이므로, 파일을 다시 저장하며 BOM 을 붙였다 뗐다 하면 fingerprint 가 stale 해진다 → 한 가지 방식(BOM 없음 권장)으로 통일.
 - **명령**: `argv[0]` 는 PATH/PATHEXT 로 해석된다. `["npm","run","test"]` 그대로, `.cmd` 나 `cmd /c` 불필요(후자는 금지).
 - **프로세스**: image name 으로 죽이지 않는다(`taskkill /IM node.exe` 금지). `python -m web_pipeline locks` 또는 log 에서 PID 확인 → `taskkill /PID <pid> /T`.

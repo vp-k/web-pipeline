@@ -1,6 +1,7 @@
 import json
 import re
 import unittest
+import zipfile
 
 from web_pipeline.common import PipelineError, hash_file, read_state, write_state
 from web_pipeline.state import archive_task, create_task, policy_check, transition
@@ -47,6 +48,26 @@ class ArchiveTests(unittest.TestCase):
         create_task(fixture.root, "TASK-NEW", "New active task", "T1", ["backend"], base_ref="HEAD")
         result = policy_check(fixture.root, kit=False, trust_path=fixture.trust)
         self.assertEqual("PASS", result["status"], result)
+
+    def test_archive_keeps_the_run_evidence_reports_do_not_commit(self):
+        fixture = self._done_fixture()
+        state = read_state(fixture.root, fixture.task)
+        reports = fixture.root / fixture.config["project"]["report_root"]
+        result = archive_task(fixture.root, fixture.task, trust_path=fixture.trust)
+        target = fixture.root / result["path"]
+        evidence = json.loads((target / "ARCHIVE.json").read_text())["evidence"]
+        self.assertEqual(hash_file(target / "EVIDENCE.zip"), evidence["sha256"])
+        runs = {state["baseline_run"], state["full_run"]}
+        self.assertEqual(runs, set(evidence["runs"]))
+        with zipfile.ZipFile(target / "EVIDENCE.zip") as bundle:
+            names = set(bundle.namelist())
+            for run in runs:
+                summary = json.loads(bundle.read(f"{run}/summary.json"))
+                self.assertEqual(hash_file(reports / run / "summary.json"), evidence["runs"][run])
+                for artifact in summary["artifacts"]:
+                    self.assertIn(f"{run}/{artifact['path']}", names)
+            self.assertIn("pipeline.config.yaml", names)
+        self.assertFalse(any(".python-cache" in name for name in names))
 
     def test_unapproved_or_not_done_archive_is_rejected_without_target(self):
         fixture = self._fixture()

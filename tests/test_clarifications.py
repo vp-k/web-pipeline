@@ -152,15 +152,17 @@ class ClarificationTests(unittest.TestCase):
         atomic_text(self.root / 'detail.md', 'A concrete fixture constraint.\nAdditional requirement.\n')
         self.assertNotEqual(original, source_fingerprint(self.root, config, state))
 
-    def test_revision_retains_answers_but_requires_reanalysis(self):
+    def test_revision_carries_answers_to_the_new_revision(self):
+        # 2.16 (D4): revise carries the answers; a bare revision number no longer reopens planning.
+        # Changed content still forces reanalysis (tests/test_revise_carry.py).
         data = record_fixture_planning(self.root, self.task)
         data['questions'] = [self.question(self.resolution())]
         self.save(data)
-        before = (self.directory / 'CLARIFICATIONS.json').read_bytes()
-        revise_task(self.root, self.task, 'Explicitly changed fixture scope')
-        self.assertEqual(before, (self.directory / 'CLARIFICATIONS.json').read_bytes())
-        with self.assertRaisesRegex(PipelineError, 'revision is stale'):
-            prepare_task(self.root, self.task)
+        revised = revise_task(self.root, self.task, 'Explicitly changed fixture scope')
+        carried = json.loads((self.directory / 'CLARIFICATIONS.json').read_text(encoding='utf-8'))
+        self.assertEqual(revised['revision'], carried['revision'])
+        self.assertEqual({**data, 'revision': revised['revision']}, carried)
+        prepare_task(self.root, self.task)
 
     def test_legacy_task_reports_no_coverage_then_revision_enables_gate(self):
         from web_pipeline.clarifications import report

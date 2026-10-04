@@ -2,13 +2,15 @@ from __future__ import annotations
 
 from pathlib import Path
 import re
+import subprocess
 from typing import Any
 
 from .approval import validate_approvals
 from .local_review import ordinary_work, validate_review
 from .budget import new_accounting
-from .common import (PipelineError, atomic_json, atomic_text, code_snapshot, load_config,
-                     lock, read_state, safe_path, source_fingerprint, utc_now, validate_schema, write_state)
+from .common import (DEVELOPMENT_PROFILES, FINGERPRINT_VERSION, PipelineError, atomic_json, atomic_text,
+                     code_snapshot, load_config, lock, read_state, safe_path, source_fingerprint, utc_now,
+                     validate_schema, write_state)
 from .policy import TIERS, classify, document_errors, option_shaped
 
 STATUSES = ("DRAFT", "READY", "IN_PROGRESS", "VERIFYING", "REVIEW", "DONE", "BLOCKED")
@@ -30,6 +32,13 @@ def create_task(root: Path, task_id: str, title: str, tier: str, domains: list[s
         raise PipelineError("title, valid tier, and at least one domain are required")
     if option_shaped(base_ref):
         raise PipelineError(f"base_ref {base_ref!r} must be a git revision, not an option")
+    if not config_mode_is_kit(root):
+        # Project tasks diff against real history; the default is where the task starts.
+        if base_ref is None:
+            base_ref = commit_of(root, 'HEAD', 'base_ref defaults to the current commit, but this repository has '
+                                               'no commit yet: commit once, or pass --base-ref <revision>')
+        else:
+            commit_of(root, base_ref)
     task_dir = safe_path(root, f"Docs/Work/{task_id}")
     archive_dir = safe_path(root, "Docs/Archive")
     if archive_dir.is_dir() and any(
@@ -78,7 +87,21 @@ def create_task(root: Path, task_id: str, title: str, tier: str, domains: list[s
     return state
 
 
-def prepare_task(root: Path, task_id: str, implementer: str = 'claude') -> dict[str, Any]:
+def commit_of(root: Path, ref: str, missing: str | None = None) -> str:
+    """The commit a revision names now; a base_ref must point at real history."""
+    if option_shaped(ref):
+        raise PipelineError(f"base_ref {ref!r} must be a git revision, not an option")
+    try:
+        result = subprocess.run(['git', 'rev-parse', '--verify', '--quiet', ref + '^{commit}'], cwd=root,
+                                capture_output=True, text=True, encoding='utf-8', timeout=30)
+    except (OSError, subprocess.TimeoutExpired) as exc:
+        raise PipelineError(f'cannot inspect Git history for base_ref {ref!r}: {exc}') from exc
+    if result.returncode or not result.stdout.strip():
+        raise PipelineError(missing or f"base_ref {ref!r} does not name a commit in this repository")
+    return result.stdout.strip()
+
+
+def prepare_task(root: Path, task_id: str, implementer: str = 'claude', base_ref: str | None = None) -> dict[str, Any]:
     """Seal a DRAFT revision so Baseline can bind to a stable task fingerprint."""
     root = Path(root).resolve()
     if not implementer.strip():
@@ -89,8 +112,12 @@ def prepare_task(root: Path, task_id: str, implementer: str = 'claude') -> dict[
         state = read_state(root, task_id)
         if state["status"] != "DRAFT":
             raise PipelineError("only DRAFT tasks can be prepared; revise the task first")
+        if base_ref is not None:
+            commit_of(root, base_ref)
+            state["base_ref"] = base_ref
         if not is_kit and not state.get("base_ref"):
-            raise PipelineError("project tasks require an explicit Git base_ref")
+            raise PipelineError("project tasks require a Git base_ref: rerun prepare with --base-ref <revision>, "
+                                "usually the commit the task started from")
         result = classify(root, config, state)
         if result["errors"]:
             raise PipelineError("; ".join(result["errors"]))
@@ -111,13 +138,31 @@ def prepare_task(root: Path, task_id: str, implementer: str = 'claude') -> dict[
             command = definitions[check_id]
             if not command['enabled'] or not {'Full', 'Policy'}.intersection(command['profiles']):
                 problems.append(f'Acceptance check {check_id} must be enabled and executable in Full')
+        warnings = []
+        if not is_kit:
+            # Runs record a disabled required check as NOT_RUN; say so before work starts, not after it.
+            from .evidence import required_checks
+            enabled = {command['id'] for command in config['verification']['commands'] if command['enabled']}
+            def disabled(profiles):
+                return set().union(*(required_checks(config, state, profile) for profile in profiles)) - enabled
+            development = disabled(DEVELOPMENT_PROFILES)
+            if development:
+                problems.append(f"checks this task needs are not enabled: {', '.join(sorted(development))}. "
+                                "Enable them with real argv")
+            release = disabled(("Release",)) - development if state["risk_tier"] == "T4" else set()
+            if release:
+                # Release infrastructure may not exist while the feature is built; the Release run needs it after DONE.
+                warnings.append(f"Release checks are not enabled yet: {', '.join(sorted(release))}. "
+                                "The Release run after DONE needs them")
         if problems:
             raise PipelineError("; ".join(problems))
+        state["blockers"] = []  # REVISION_HISTORY.json keeps why the task was revised
         state["implementer"] = implementer.strip()
+        state["fingerprint_version"] = FINGERPRINT_VERSION
         state["fingerprint"] = source_fingerprint(root, config, state)
         state["updated_utc"] = utc_now()
         write_state(root, state)
-        return state
+        return {**state, "warnings": warnings} if warnings else state
 
 
 def config_mode_is_kit(root: Path) -> bool:
@@ -245,6 +290,16 @@ def policy_check(root: Path, task_id: str | None = None, kit: bool = False,
                 errors.append(f"{current}: merge gate requires DONE, found {state['status']}")
             if not kit and not state.get("base_ref"):
                 errors.append(f"{current}: project task requires base_ref")
+            if gate == 'progress' and state['status'] == 'DONE' and state.get('completion_seal'):
+                # DONE is history: its own records and runs bind it, judged as of completion.
+                # Later work, docs and policy belong to later tasks; merge readiness stays strict.
+                from . import seal
+                seal.verify(root, config, state, trust_path)
+                if state.get("release_status") in {"READY", "VERIFIED"}:
+                    if state['risk_tier'] != 'T4' or not state.get("release_run"):
+                        raise PipelineError('Release readiness requires DONE T4 and a Release run')
+                    seal.verify_release(root, config, state, trust_path)
+                continue
             candidate = dict(state)
             if base_ref is not None:
                 if option_shaped(base_ref):
@@ -267,7 +322,9 @@ def policy_check(root: Path, task_id: str | None = None, kit: bool = False,
                 if not state.get("baseline_run"):
                     raise PipelineError("Baseline run is required")
                 from .runner import validate_run, validate_completion
-                validate_run(root, config, state, state["baseline_run"], "Baseline", require_current=False, trust_path=trust_path)
+                # The Baseline records the tree before work began; a later policy does not rewrite it.
+                validate_run(root, config, state, state["baseline_run"], "Baseline", require_current=False,
+                             trust_path=trust_path, historical=True)
             if state["status"] in {"REVIEW", "DONE"}:
                 from .runner import validate_run, validate_completion
                 if not state.get("full_run"):
@@ -324,7 +381,8 @@ def transition(root: Path, task_id: str, status: str, trust_path: str | Path | N
             if not state.get("baseline_run"):
                 raise PipelineError("Baseline run is required")
             from .runner import validate_run, validate_completion
-            validate_run(root, config, state, state["baseline_run"], "Baseline", require_current=False, trust_path=trust_path)
+            validate_run(root, config, state, state["baseline_run"], "Baseline", require_current=False,
+                         trust_path=trust_path, historical=True)
         if status == "READY":
             problems = document_errors(root, state)
             if not state.get("implementer"):
@@ -350,6 +408,9 @@ def transition(root: Path, task_id: str, status: str, trust_path: str | Path | N
             if status == "DONE":
                 snapshot = code_snapshot(root, config)
                 _review_gate(root, config, state, trust_path, snapshot)
+                if state.get("fingerprint_version") == FINGERPRINT_VERSION:
+                    from . import seal
+                    state["completion_seal"] = seal.make(root, config, {**state, "status": "DONE"})
         if status == 'IN_PROGRESS' and state['status'] == 'REVIEW':
             # Advisory review rework needs fresh completion evidence and decisions.
             state['full_run'] = state['release_run'] = None
@@ -361,6 +422,32 @@ def transition(root: Path, task_id: str, status: str, trust_path: str | Path | N
         return state
 
 
+def _carry_forward(root: Path, state: dict[str, Any]) -> list[str]:
+    """Move the task's own planning and decisions to the new revision.
+
+    Their content, not a revision number, decides what must be redone: planning
+    excerpts must still match their sources, and decisions are re-approved or
+    reviewed with the new fingerprint. Records owned by another task stay as they are.
+    """
+    import json
+    from .clarifications import template
+    task_id, previous = state["task_id"], state["revision"] - 1
+    planning = f'Docs/Work/{task_id}/CLARIFICATIONS.json'
+    carried = []
+    for relative in [planning, *state.get("decision_records", [])]:
+        path = safe_path(root, relative)
+        try:
+            record = json.loads(path.read_text(encoding="utf-8-sig"))
+        except (OSError, ValueError):
+            continue  # missing or unreadable records keep failing their own checks
+        if isinstance(record, dict) and record.get("task_id") == task_id and record.get("revision") == previous:
+            atomic_json(path, {**record, "revision": state["revision"]})
+            carried.append(relative)
+    if not safe_path(root, planning).exists():
+        atomic_json(safe_path(root, planning), template(state))
+    return carried
+
+
 def revise_task(root: Path, task_id: str, reason: str) -> dict[str, Any]:
     if not reason.strip():
         raise PipelineError("revision reason is required")
@@ -369,12 +456,10 @@ def revise_task(root: Path, task_id: str, reason: str) -> dict[str, Any]:
         state = read_state(root, task_id)
         state["revision"] += 1
         state['planning_version'] = 1
-        from .clarifications import template
-        planning_path = safe_path(root, f'Docs/Work/{task_id}/CLARIFICATIONS.json')
-        if not planning_path.exists():
-            atomic_json(planning_path, template(state))
+        carried = _carry_forward(root, state)
         state["status"] = "DRAFT"
         state["fingerprint"] = None
+        state["completion_seal"] = None
         state["approvals"] = []
         state["exceptions"] = []
         state["baseline_run"] = state["full_run"] = state["release_run"] = None
@@ -383,7 +468,8 @@ def revise_task(root: Path, task_id: str, reason: str) -> dict[str, Any]:
         history_path = root / "Docs" / "Work" / task_id / "REVISION_HISTORY.json"
         import json
         history = json.loads(history_path.read_text(encoding="utf-8-sig")) if history_path.is_file() else []
-        history.append({"revision": state["revision"], "reason": reason.strip(), "revised_utc": utc_now()})
+        history.append({"revision": state["revision"], "reason": reason.strip(), "revised_utc": utc_now(),
+                        "carried": carried})
         atomic_json(history_path, history)
         state["updated_utc"] = utc_now()
         validate_schema(root, "state", state)

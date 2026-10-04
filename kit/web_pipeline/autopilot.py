@@ -169,6 +169,30 @@ def _close_lease(queue):
     queue['lease'] = None
 
 
+def _repair_context(root, config, queue, task_id):
+    """What REPAIR answers: the failed run's checks, or the review that asked for changes."""
+    for event in reversed(queue['events']):
+        if event['task_id'] != task_id:
+            continue
+        if event['kind'] == 'DECISION' and event.get('action') == 'REVIEW' and event.get('outcome') == 'changes_required':
+            return {'review': {'outcome': event['outcome'], 'decision': event['decision']}}
+        run = (event.get('outcome') or {}) if event['kind'] == 'EXECUTED' else {}
+        if run.get('run_id'):
+            if run.get('status') == 'PASS':
+                return None
+            cause = {'run_id': run['run_id'], 'status': run.get('status'), 'checks': []}
+            try:
+                summary = json.loads(safe_path(root, f"{config['project']['report_root']}/{run['run_id']}/summary.json",
+                                               True).read_text(encoding='utf-8-sig'))
+            except (PipelineError, OSError, ValueError) as exc:
+                return {**cause, 'error': f'run summary unreadable: {exc}'}
+            cause.update(profile=summary.get('profile'), checks=[
+                {key: check.get(key) for key in ('id', 'status', 'reason', 'exit_code', 'log')}
+                for check in summary.get('checks', []) if check.get('status') not in {'PASS', 'NOT_APPLICABLE'}])
+            return cause
+    return None
+
+
 def _done_valid(root, task_id, trust):
     return (read_state(root, task_id)['status'] == 'DONE'
             and policy_check(root, task_id=task_id, trust_path=trust)['status'] == 'PASS')
@@ -195,6 +219,37 @@ def _completion_result(root, queue, trust):
         return {'status': 'WAITING', 'completion_gate': scope, 'merge_gate': gate,
                 'reason': 'Required merge readiness failed; resolve the reported blockers before starting another queue'}
     return {'status': 'COMPLETE', 'completion_gate': scope, 'merge_gate': gate}
+
+
+def _commit_point(root, queue):
+    """DONE work not yet offered for a commit, while no other queued task has touched the tree.
+
+    The tree is shared, so a commit is clean only when every unfinished task has
+    not begun implementing. Committing changes no evidence: base_ref is a pinned
+    commit and the tree digest covers file contents, not history.
+    """
+    offered = {(name, event['revisions'][name]) for event in queue['events']
+               if event['kind'] == 'COMMIT_POINT' for name in event['tasks']}
+    done = []
+    for item in queue['items']:
+        name = item['task_id']
+        state = read_state(root, name)
+        if state['status'] == 'DONE':
+            if (name, state['revision']) not in offered:
+                done.append(state)
+            continue
+        touched = any(event['task_id'] == name and event['kind'] in {'DECISION', 'RECOVER'}
+                      and event.get('action') in {'IMPLEMENT', 'REPAIR'} for event in queue['events'])
+        if touched or item['cursor'] != 'IMPLEMENT' or state['status'] not in {'DRAFT', 'READY', 'IN_PROGRESS'}:
+            return None
+    if not done:
+        return None
+    return {'tasks': [state['task_id'] for state in done],
+            'revisions': {state['task_id']: state['revision'] for state in done},
+            'message': '\n'.join(f"{state['task_id']}: {state['title']}" for state in done),
+            'instruction': ('Only DONE work from this queue is in the working tree. If the user wants a commit per '
+                            'task, check git status, commit it now with this message, then continue. '
+                            'A commit changes no task evidence.')}
 
 
 def _dependency_valid(root, config, queue, task_id, trust, for_task=None):
@@ -229,6 +284,11 @@ def advance(root, worker='claude', trust=None):
     with lock(root, 'autopilot'):
         queue = _load(root)
         def respond(result):
+            point = None if result['status'] == 'BUSY' or result.get('scope') == 'workspace' else _commit_point(root, queue)
+            if point:
+                _event(queue, 'COMMIT_POINT', None, tasks=point['tasks'], revisions=point['revisions'])
+                _save(root, queue)
+                result = {**result, 'commit_point': point}
             return {**result, 'warnings': _time_warnings(root, queue)}
         if queue['lease']:
             return respond({'status': 'BUSY', 'reason': 'Unfinished action; inspect status and recover explicitly'})
@@ -316,8 +376,12 @@ def advance(root, worker='claude', trust=None):
                     lease = _claim(root, queue, item, state, config, worker, action, agent,
                                    'First dependency-ready task in authorized order; next action derived from STATE and evidence', alternatives)
                     if agent:
-                        return respond({'status': 'ACTION_REQUIRED', **lease, 'checkpoint': QUEUE,
-                                'instruction': 'Perform the scoped action, record a decision, complete this token, then call loop next again. Do not end the turn here.'})
+                        required = {'status': 'ACTION_REQUIRED', **lease, 'checkpoint': QUEUE,
+                                    'instruction': 'Perform the scoped action, record a decision, complete this token, then call loop next again. Do not end the turn here.'}
+                        cause = _repair_context(root, config, queue, name) if action == 'REPAIR' else None
+                        if cause:
+                            required['repair'] = cause
+                        return respond(required)
                     try:
                         if action in {'Baseline', 'Fast', 'Task', 'Phase', 'Full'}:
                             summary = run_profile(root, name, action, trust_path=trust)

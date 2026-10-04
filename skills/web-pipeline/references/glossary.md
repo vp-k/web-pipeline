@@ -11,7 +11,7 @@
 | `IN_PROGRESS` | 구현 중. `Fast`/completion run 가능 |
 | `VERIFYING` | 구현 종료, completion run 대기/실행 |
 | `REVIEW` | completion run PASS + 현재 트리와 일치. review gate 대기 |
-| `DONE` | 종착 상태. 변경하려면 `revise` |
+| `DONE` | 종착 상태이자 이력. 완료 봉인으로 판정하므로 이후 변경으로 낡지 않는다. 변경하려면 `revise` |
 | `BLOCKED` | 수동 보류. `READY` 또는 `IN_PROGRESS` 로만 복귀 |
 
 `release_status`: `NOT_READY`(기본) · `READY`(`Release` run PASS 시 엔진이 설정) · `VERIFIED`(스키마 허용값, 엔진은 설정하지 않음).
@@ -55,7 +55,9 @@ test report 의 test status: `passed` `failed` `error` `skipped`.
 | action (엔진) | `Baseline` `READY` `IN_PROGRESS` `Fast` `VERIFYING` `Task` `Phase` `Full` `DONE` |
 | cursor | `IMPLEMENT` → `FAST` → `FULL`; 검증 실패·`changes_required` 시 `REPAIR` |
 | outcome | `prepared` `implemented` `reviewed` `changes_required` `blocked` |
-| event kind | `START` `SELECT` `EXECUTED` `WAIT` `WAITING` `DECISION` `RECOVER` `RETRY` `RECONCILE` `RENEW` `LEASE_END` |
+| event kind | `START` `SELECT` `EXECUTED` `WAIT` `WAITING` `DECISION` `RECOVER` `RETRY` `RECONCILE` `RENEW` `LEASE_END` `COMMIT_POINT` |
+| `commit_point` | `loop next` 응답 키. DONE task만 트리에 있고 다른 task가 구현을 시작하지 않은 시점. revision마다 한 번 제안 |
+| `repair` | REPAIR 액션 응답 키. 실패한 run의 check와 로그, 또는 변경을 요구한 리뷰 결정 |
 | `completion_gate` | `queue`(기본) · `merge`(모든 활성 task DONE + 정리된 checkout 요구) |
 | lease / token | `loop next` 가 에이전트 행동에 발급하는 단일 점유권. revision, state hash, fingerprint, tree digest 에 묶임. token 은 `complete`/`recover` 에 그대로 전달 |
 | waiting | 큐 item 에 저장된 차단 사유. `loop retry` 로만 해제 |
@@ -94,6 +96,9 @@ test report 의 test status: `passed` `failed` `error` `skipped`.
 | `tracked_required` | `check` 출력. 변경 경로가 T4로 분류됨 |
 | `decisions` | `check` 출력. 변경 경로가 가리키는 보호 변경 목록 |
 | `commit_table` | `check` 출력. 커밋 메시지용 check 결과 표 |
+| `scope` | `check` 출력. Task check의 `level`, `components`, `reasons`. Full과 Fast에서는 `null` |
+| Task check | lean 기본 check(`verification.scopes` 있을 때). 바뀐 컴포넌트와 소비자만 검사하고 넓은 변경은 전체로 넓힘 |
+| feature backlog | `Docs/Work/FEATURES.json`. lean 기능 순서와 진행. `TODO` → `ACTIVE` → `DONE`. check 범위와 증거에 영향 없음 |
 
 ## Boundary / scope / legacy
 
@@ -133,12 +138,14 @@ test report 의 test status: `passed` `failed` `error` `skipped`.
 
 | 용어 | 정의 |
 |---|---|
-| fingerprint | config 전체 + `sources` 문서 + task 문서 + ADR + scope 필드(tier, domains, protected, migration, base_ref, implementer, revision) 의 해시. `prepare` 가 기록. 하나라도 바뀌면 stale |
-| tree digest | report root, `Docs/Work`, `Docs/Archive`, `generated_paths`, 캐시 디렉터리를 제외한 **작업 트리 전체 파일**의 바이트 해시. 추적되지 않은 파일도 포함하되, `project.respect_gitignore: true`(기본)면 Git 이 무시하는 미추적 파일은 제외 |
+| fingerprint | task 문서 + 결정 기록(ADR) + scope 필드(tier, domains, protected, migration, base_ref, implementer, revision) + 승인 규칙(`approval_policy`, 보호 rule 의 `tier`·`roles`) + `CLARIFICATIONS.json` 이 인용한 문서 + 경계 계약의 해시. 줄바꿈은 무시. `prepare` 가 기록. 하나라도 바뀌면 stale. 2.16 이전에 prepare 된 task 는 `revise` 전까지 옛 방식 유지 |
+| completion seal | DONE 전이가 기록하는 완료 봉인. 그 시점의 승인 규칙, 인용 문서, 경계 계약 해시를 담는다. DONE task 의 fingerprint 와 progress 검사는 봉인으로 재생한다 |
+| tree digest | report root, `Docs/Work`, `Docs/Archive`, `pipeline.config.yaml`, `generated_paths`, 캐시 디렉터리를 제외한 **작업 트리 전체 파일**의 바이트 해시. 추적되지 않은 파일도 포함하되, `project.respect_gitignore: true`(기본)면 Git 이 무시하는 미추적 파일은 제외 |
 | snapshot | `{commit, tree_digest, dirty}`. run 과 승인이 묶이는 대상은 `tree_digest` |
-| policy snapshot | `risk`, `verification`, `evidence`, `iteration_limits`, `boundaries` 의 해시. 바뀌면 기존 run 무효 |
+| policy snapshot | `risk`, `verification`, `evidence`, `iteration_limits`, `boundaries` 의 해시. 바뀌면 진행 중 task 의 기존 run 무효. DONE task 와 시작된 작업의 Baseline 은 기록된 판정을 유지 |
 | revision | `revise` 마다 +1. 승인·run·fingerprint 는 revision 에 묶임 |
 | run id / evidence | `Reports/Pipeline/<run_id>/` (`summary.json`, `logs/`, `artifacts/`, `screenshots/`). 파일은 해시로 고정되며 수정 금지 |
+| `EVIDENCE.zip` | `archive` 가 아카이브 폴더에 남기는 증거 묶음. 실행 요약, 해시 확인된 산출물, 당시 `pipeline.config.yaml` |
 | Baseline | 변경 전 상태의 증거. DRAFT 에서만 캡처 |
 | completion run | `full_run`. completion 프로필 또는 `Full` 의 PASS run |
 | protected change | `risk.protected_rules` 의 키(예: `authentication`, `database_schema`, `payment`). 역할 승인 + ADR scope 필요 |

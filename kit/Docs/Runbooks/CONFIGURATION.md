@@ -19,7 +19,7 @@ New adoption sets `approval_policy: "standard"`:
 
 `strict` requires Ed25519-signed records for every human gate (Reviewer for T1+, Tech Owner design approval for unprotected T2, domain owners for protected work, two distinct signers for T4 release) and an external trust file supplied with `--trust` or `WEB_PIPELINE_TRUST`. Omitting the field means strict. The trust file maps human identifiers (not necessarily real names) to roles and Ed25519 public keys, never private keys. Protect it with external access controls and keep signing keys unavailable to AI: an outside-project path alone is not a security boundary. Repository write access, hashes, and CI logs do not establish human authority.
 
-Standard receipts never need a trust file; only existing signed records do. Changing policy is an explicit governed config change, not an automatic plugin upgrade; it invalidates prepared fingerprints, so revise prepared tasks.
+Standard receipts never need a trust file; only existing signed records do. Changing policy is an explicit governed config change, not an automatic plugin upgrade. A task fingerprint binds `approval_policy` and the `tier` and `roles` of the protected rules for the task's own changes, so such a change makes those prepared tasks stale; revise them.
 
 ## Bootstrap checklist
 
@@ -38,11 +38,15 @@ Standard receipts never need a trust file; only existing signed records do. Chan
 
 ## Source fingerprints and exclusions
 
+`pipeline.config.yaml` is governance, not product source. It is outside the tree digest, and a task fingerprint binds only its approval rules: `approval_policy` and the protected rules' `tier` and `roles` for the task's changes. Other configuration edits do not make a prepared task stale. Each run records the verification policy it ran under: when that policy changes, an in-flight task reruns its completion profile. A DONE task and the Baseline of started work keep their recorded verdict, judged against their own evidence. A sealed DONE replays the governance, cited planning documents and boundary contracts recorded at completion.
+
+A task fingerprint (version 2, tasks prepared from 2.16) also binds the task's own documents and decision records, its scope fields, the documents its `CLARIFICATIONS.json` cites and the boundary contract files. Project source documents the task does not cite stay out of it. Tasks prepared earlier keep their version 1 fingerprint until revised.
+
 `project.generated_paths` may list only untracked build/test outputs such as `dist` or `coverage`. It cannot overlap governance, source, engine, schema, script, or template inputs. If Git tracks any file below an excluded path, snapshot validation rejects the exclusion; generated paths cannot hide tracked changes from classification or evidence binding.
 
 `project.respect_gitignore` (boolean, shipped `true`) additionally excludes git-ignored *untracked* files from source fingerprints and tree digests, so build caches such as `.turbo/` or `*.tsbuildinfo` do not invalidate evidence. Tracked files are never hidden by an ignore rule. This requires Git; outside a repository it has no effect, and a ready project must have Git history anyway.
 
-The same checks apply to `report_root` and implicit cache exclusions (`.git`, `node_modules`, `__pycache__`, `.venv`, `.pipeline-locks`, `.pipeline-upgrades`). Only `.gitkeep` markers may be tracked inside excluded outputs. Report paths cannot overlap Docs, Scripts, schemas, engine, CI, or source documents. Verify and revalidate the same checkout bytes; line-ending changes also invalidate content fingerprints.
+The same checks apply to `report_root` and implicit cache exclusions (`.git`, `node_modules`, `__pycache__`, `.venv`, `.pipeline-locks`, `.pipeline-upgrades`). Only `.gitkeep` markers may be tracked inside excluded outputs. Report paths cannot overlap Docs, Scripts, schemas, engine, CI, or source documents. Verify and revalidate the same checkout bytes. Task fingerprints, approval receipts and the engine manifest ignore CRLF versus LF; the tree digest of product files does not. Adoption merges `eol=lf` rules for the engine, `Schemas`, `Docs` and `pipeline.config.yaml` into `.gitattributes`; add `* text=auto eol=lf` when product checkouts may change line endings.
 
 ## Path rules
 
@@ -81,8 +85,9 @@ Configure real component paths, transitive consumers and separate executable sui
 through `verification.scopes`; see [Task/Phase/Release configuration](VERIFICATION_SCOPES.md).
 Task completion can then execute impacted acceptance/regression, Phase executes the
 combined group, and Full/Release remain project-wide. Missing configuration keeps
-legacy Full completion. Upgrade and scope adoption are separate explicit changes; revise
-prepared tasks instead of reusing stale approvals or Baselines.
+legacy Full completion. Upgrade and scope adoption are separate explicit changes; rerun completion for
+in-flight tasks, and revise a task whose fingerprint reports stale instead of
+reusing stale approvals or Baselines.
 
 ## Command adapter examples
 
@@ -100,4 +105,4 @@ For legacy installations, follow [the explicit migration procedure](../Governanc
 
 Read [PRODUCT_FIRST.md](PRODUCT_FIRST.md). Select actual supported domains rather than configuring the kit's whole example catalog. Reuse existing source documents and check commands. Six source roles may reference fewer substantive files; no engine gate requires six new documents. Readiness still requires all applicable checks, not dummy commands or disabled requirements. Once entry gates pass, proceed to the requested feature.
 
-New adoption uses advisory cumulative time (`iteration_limits.time_budget_mode: "warn"`). Choose `enforce` for a requested hard time cap. Existing absent-mode configs and queues retain enforce; config changes invalidate fingerprints and require normal revision, not manual STATE edits.
+New adoption uses advisory cumulative time (`iteration_limits.time_budget_mode: "warn"`). Choose `enforce` for a requested hard time cap. Existing absent-mode configs and queues retain enforce. Budget changes do not touch fingerprints; never edit STATE by hand to apply them.

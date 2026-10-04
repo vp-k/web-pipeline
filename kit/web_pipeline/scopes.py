@@ -74,6 +74,10 @@ def validate_config(root, config, kit=False):
     model = config['verification']['scopes']
     validate_schema(root, 'verification-scopes', model)
     components = {c['id']: c for c in model['components']}
+    if config.get('workflow', 'tracked') != 'lean' and (
+            not model['phase_checks'] or any(not c['checks']['Phase'] for c in components.values())):
+        # Lean has no Phase; tracked Phase verification needs integration evidence.
+        raise PipelineError('Tracked verification.scopes needs Phase checks for every component and phase_checks')
     if len(components) != len(model['components']):
         raise PipelineError('Duplicate verification component')
     commands = {c['id']: c for c in config['verification']['commands']}
@@ -115,11 +119,18 @@ def historical_completion(root, config, member, trust_path=None, *, require_curr
     from .policy import document_errors
     if member['status'] != 'DONE' or not member['full_run'] or not member['baseline_run']:
         raise PipelineError(f"Phase member {member['task_id']} requires DONE with completion evidence and Baseline")
+    if member.get('completion_seal'):
+        from . import seal
+        from .common import code_snapshot
+        summary = seal.verify(root, config, member, trust_path)
+        if require_current and summary['snapshot']['tree_digest'] != code_snapshot(root, config)['tree_digest']:
+            raise PipelineError('run code snapshot is stale')
+        return summary
     errors = document_errors(root, member, for_done=True)
     if errors:
         raise PipelineError('; '.join(errors))
     validate_run(root, config, member, member['baseline_run'], 'Baseline',
-                 require_current=False, trust_path=trust_path)
+                 require_current=False, trust_path=trust_path, historical=True)
     validate_approvals(root, config, member, _roles(config, member, 'design'), 'design', trust_path)
     summary = validate_completion(root, config, member, member['full_run'],
                                   require_current=require_current, trust_path=trust_path)
@@ -150,8 +161,11 @@ def _phase_members(root, config, scope, trust_path):
     return members, checks, components, domains
 
 
-def selection(root, config, state, profile, *, changed_paths=None, trust_path=None):
-    """Return the exact argv check IDs, scope and expansion reasons before running."""
+def selection(root, config, state, profile, *, changed_paths=None, trust_path=None, scope=None, task_checks=None):
+    """Return the exact argv check IDs, scope and expansion reasons before running.
+
+    A lean check passes its own empty scope and no acceptance checks; it has no task record.
+    """
     from .evidence import acceptance_checks, required_checks
     from .policy import classify
     if not enabled(config):
@@ -159,7 +173,8 @@ def selection(root, config, state, profile, *, changed_paths=None, trust_path=No
             raise PipelineError('Task/Phase profiles require verification.scopes')
         return None
     model = config['verification']['scopes']
-    scope = task_scope(root, config, state)
+    if scope is None:
+        scope = task_scope(root, config, state)
     if profile == 'Task' and scope['level'] == 'phase':
         raise PipelineError('A phase requires Phase verification')
     if profile == 'Phase' and scope['level'] != 'phase':
@@ -216,7 +231,8 @@ def selection(root, config, state, profile, *, changed_paths=None, trust_path=No
             domains.update(component['domains'])
     effective = copy.deepcopy(state)
     effective['change_domains'] = sorted(domains)
-    task_checks = acceptance_checks(root, state)
+    if task_checks is None:
+        task_checks = acceptance_checks(root, state)
     if project_wide:
         effective['change_domains'] = sorted(set(config['project']['supported_domains']) | domains)
         checks = set(required_checks(config, effective, 'Release' if profile == 'Release' else 'Full', task_checks))

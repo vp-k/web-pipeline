@@ -68,7 +68,7 @@ Important architecture/security choices still need the project's ADR and the pro
 
 Failed Fast/Task/Phase/Full requests REPAIR; successful verification requests advisory REVIEW. Changes-required transitions REVIEW back to IN_PROGRESS and clears previous completion/Release pointers. Rework must obtain new verification and, where the tier or protected changes require it, new user receipts (standard) or signatures (strict); a T1/T2 unprotected task needs a fresh local review record.
 
-After a user-authorized scope change, use `revise` then `loop reconcile --task ... --reason ...`; the new DRAFT revision is pinned without resetting budgets. If another task changes shared source, old REVIEW/DONE evidence can become stale. The loop fails closed; inspect and reconcile/reverify rather than manufacturing approval or automatically rewriting requirements. Task granularity and dependency order must respect this repository-wide source binding.
+After a user-authorized scope change, use `revise` then `loop reconcile --task ... --reason ...`; the new DRAFT revision is pinned without resetting budgets. If another task changes shared source, REVIEW evidence of unfinished work can become stale. The loop fails closed; inspect and reconcile/reverify rather than manufacturing approval or automatically rewriting requirements. DONE is history: the DONE transition records a completion seal, and a sealed DONE stays valid as a dependency while later work changes the tree. The `merge` completion gate stays strict and needs current Phase coverage for integrated work. Task granularity and dependency order must respect this source binding.
 
 ## Leases and recovery
 
@@ -102,6 +102,12 @@ Task renew settles its budget using the retained summary, or conservatively char
 ## Connected implementation order
 
 For coupled provider/consumer work, the queue supports explicit `implementation_groups`. Follow [IMPLEMENTATION_GROUPS.md](IMPLEMENTATION_GROUPS.md): prepare contract/scope and all members/Phase; capture every member Baseline and entry gate; implement in the declared backend/frontend order; execute unchanged member Fast/Task/review gates; then execute the Phase gates. Do not substitute an internal completion dependency for implementation order or remove integration tests.
+
+## Commit points and repair causes
+
+The shared working tree is committed by the user, not the engine. When every DONE task in the queue is in the tree and no unfinished queued task has begun implementing, a `next` response carries `commit_point` with the task IDs, a commit `message` and an `instruction`. A COMMIT_POINT event records it, so each DONE revision is offered once. Ask the user once, when the queue starts, whether to commit at each point or once at the end; when they chose per task, check `git status` and commit with that message, then continue. A commit changes no evidence: `base_ref` is a pinned commit and the tree digest covers file contents, not history. Once another task has started implementing, no point is offered, so a commit never mixes finished and unfinished work.
+
+A REPAIR action carries `repair`: the failed run's ID, profile and failing checks with their reasons, exit codes and logs, or the review decision that asked for changes. Start from that cause.
 
 ## Older adopted projects
 

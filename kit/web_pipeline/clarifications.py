@@ -74,9 +74,10 @@ def _source(root, source):
             raise PipelineError(f"planning source excerpt no longer matches: {source['reference']}")
 
 
-def source_hashes(root, state):
+def source_hashes(root, state, digest=None):
     """Bind referenced documents too, including documents outside standard sources."""
     from .common import hash_file
+    digest = digest or hash_file
     path = safe_path(root, f"Docs/Work/{state['task_id']}/CLARIFICATIONS.json")
     if not path.is_file():
         return {}
@@ -85,7 +86,7 @@ def source_hashes(root, state):
         validate_schema(root, 'clarifications', data)
         sources = [source for item in data['analysis'] for source in item['sources']]
         sources += [item['resolution']['source'] for item in data['questions'] if item['resolution']]
-        return {source['reference']: hash_file(safe_path(root, source['reference'], True))
+        return {source['reference']: digest(safe_path(root, source['reference'], True))
                 for source in sources if source['kind'] == 'document'}
     except (OSError, ValueError) as exc:
         raise PipelineError(f'Invalid planning source evidence: {exc}') from exc

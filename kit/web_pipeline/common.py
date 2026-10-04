@@ -44,6 +44,14 @@ def hash_file(path):
     return digest.hexdigest()
 
 
+def text_digest(path):
+    """A line-ending-blind digest: a CRLF checkout of an LF file is the same file. Binary data stays byte-exact."""
+    data = Path(path).read_bytes()
+    if b'\0' not in data:
+        data = data.replace(b'\r\n', b'\n')
+    return hashlib.sha256(data).hexdigest()
+
+
 def safe_path(root, relative, must_exist=False):
     root = Path(root).resolve()
     value = str(relative).replace('\\', '/')
@@ -371,12 +379,61 @@ def write_state(root, state):
     atomic_text(path, text)
 
 
+TASK_FILES = ('BRIEF.md', 'DOR.md', 'DOD.md', 'PLAN.md', 'EXEC_PLAN.md', 'RELEASE.md',
+              'ACCEPTANCE.json', 'SCOPE.json', 'CLARIFICATIONS.json')
+FINGERPRINT_VERSION = 2
+_SCOPE_KEYS = ('task_id', 'revision', 'requested_tier', 'risk_tier', 'change_domains', 'protected_changes',
+               'migration_class', 'base_ref', 'implementer')
+
+
+def governance(config, state):
+    """The rules that decide who approves this task, and nothing else of the configuration."""
+    rules = config.get('risk', {}).get('protected_rules', {})
+    return {'approval_policy': config.get('approval_policy', 'strict'),
+            'protected': {change: {key: rules.get(change, {}).get(key) for key in ('tier', 'roles')}
+                          for change in state.get('protected_changes', [])}}
+
+
+def external_inputs(root, config, state):
+    """Version 2 inputs that live outside the task: the docs it cites, its contracts and its approval rules."""
+    external = {'governance': governance(config, state)}
+    if safe_path(root, f'Docs/Work/{state["task_id"]}/CLARIFICATIONS.json').is_file():
+        from .clarifications import source_hashes
+        external['planning_sources'] = source_hashes(root, state, digest=text_digest)
+    if 'boundaries' in config:
+        from .boundaries import matches
+        patterns = [p for c in config['boundaries']['contracts'] for p in c['paths']]
+        external['boundary_contracts'] = {rel: text_digest(path) for rel, path in source_files(root, config)
+                                          if matches(rel, patterns)}
+    return external
+
+
+def _fingerprint_v2(root, config, state):
+    """Bind the task's own records, its scope and what it cites. Project docs it does not cite and checks
+    it does not need stay out, so the project can move on under started work. A sealed DONE replays the
+    outside inputs recorded at completion: completed work is judged on what it was completed against."""
+    folder = f'Docs/Work/{state["task_id"]}'
+    task_files = {name: text_digest(path) for name in TASK_FILES
+                  if (path := safe_path(root, f'{folder}/{name}')).is_file()}
+    inputs = {'version': FINGERPRINT_VERSION, 'task_files': task_files,
+              'decisions': {rel: text_digest(safe_path(root, rel, True)) for rel in state.get('decision_records', [])},
+              'scope': {key: state.get(key) for key in _SCOPE_KEYS}}
+    if 'planning_version' in state:
+        inputs['planning_version'] = state['planning_version']
+    seal = state.get('completion_seal') if state.get('status') == 'DONE' else None
+    inputs.update(seal['external'] if seal else external_inputs(root, config, state))
+    return canonical_hash(inputs)
+
+
 def source_fingerprint(root, config, state):
+    if state.get('fingerprint_version') == FINGERPRINT_VERSION:
+        return _fingerprint_v2(root, config, state)
+    # Version 1, kept byte-for-byte so tasks prepared before 2.16 keep their fingerprint until revised.
     sources = {}
     for name, relative in config['sources'].items():
         sources[name] = hash_file(safe_path(root, relative, True))
     task_files = {}
-    for name in ('BRIEF.md','DOR.md','DOD.md','PLAN.md','EXEC_PLAN.md','RELEASE.md','ACCEPTANCE.json','SCOPE.json','CLARIFICATIONS.json'):
+    for name in TASK_FILES:
         path = safe_path(root, f'Docs/Work/{state["task_id"]}/{name}')
         if path.is_file():
             task_files[name] = hash_file(path)
@@ -432,7 +489,9 @@ def source_files(root, config):
     report, generated = validate_tracked_exclusions(root, config)
     # Absent in configs written before the key existed; the documented default is true.
     ignored = _git_ignored(root) if config['project'].get('respect_gitignore', True) else ()
-    return list(_files(root, (report, 'Docs/Work', 'Docs/Archive', *generated, *ignored)))
+    # The configuration is governance, not product source: each run binds the policy it ran under
+    # and each task fingerprint binds its approval rules, so a config edit never restales reviewed code.
+    return list(_files(root, (report, 'Docs/Work', 'Docs/Archive', 'pipeline.config.yaml', *generated, *ignored)))
 
 
 def code_snapshot(root, config):

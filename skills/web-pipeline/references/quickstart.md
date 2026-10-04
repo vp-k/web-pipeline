@@ -38,9 +38,9 @@ python -m venv .venv
 5. **path rules**: 기본 rule 은 단어로 인증·결제·스키마 경로를 잡는다. 프로젝트의 실제 auth·migration·계약 위치와 `.ts`/`.py` 소스 rule 을 더한다(cookbook §6).
 6. `project.name` 을 정하고 `"ready": true` 로 바꾼다.
 7. **Git baseline commit**: 엔진·설정·문서를 모두 commit 한다. 첫 task 의 diff 에 엔진 파일이 섞이면 T3 로 승격되고, `pipeline.config.yaml` 이 섞이면 검증 범위가 프로젝트 전체로 넓어진다. 그래서 task 생성 **전에** commit 한다.
-8. **base_ref**: 이 baseline commit 이 첫 task 의 비교 기준이다. `new --base-ref HEAD` 는 그 시점의 commit 으로 고정된다.
+8. **base_ref**: 이 baseline commit 이 첫 task 의 비교 기준이다. `new` 는 `--base-ref` 없이도 그 시점의 HEAD commit 으로 고정한다. DRAFT 에서는 `prepare --base-ref <rev>` 로 고칠 수 있다.
 
-`ready: true` 이후 설정을 바꾸면 prepare 된 task 의 fingerprint 가 stale 이 되어 `revise` 가 필요하다. check 를 끄거나 요구를 줄이는 변경은 사용자 결정이다. lean `check` 는 이를 `weakened_checks` 로 보고한다. 설정은 이 단계에서 끝낸다.
+`ready: true` 이후 설정 편집은 prepare 된 task 의 fingerprint 를 바꾸지 않는다. 승인 규칙을 바꿀 때만 그 task 를 `revise` 한다. 검증 정책이 바뀌면 진행 중 task 의 completion run 을 다시 돌린다. check 를 끄거나 요구를 줄이는 변경은 사용자 결정이다. lean `check` 는 이를 `weakened_checks` 로 보고한다. 설정은 이 단계에서 끝낸다.
 
 ## 3. 첫 task 와 validate
 
@@ -48,7 +48,7 @@ task 가 없어도 `validate` 는 설정을 검사한다(`no tasks found` 는 �
 
 ```console
 python -m web_pipeline validate
-python -m web_pipeline new --task APP-001 --title "Show validation hint on name field" --tier T1 --domains frontend --base-ref HEAD
+python -m web_pipeline new --task APP-001 --title "Show validation hint on name field" --tier T1 --domains frontend
 python -m web_pipeline status
 ```
 
@@ -88,11 +88,11 @@ python -m web_pipeline validate --task APP-001
 
 - `clarification-report` 는 `CLEAR` 여야 `prepare` 가 통과한다.
 - Baseline 은 코드 변경 **전**, DRAFT 에서만 실행된다. policy check 는 PASS 여야 하고, 그 외 check 는 실제로 실행된 FAIL 도 Baseline 으로 남는다(exit 1 이어도 `STATE.md` 의 `baseline_run` 확인).
-- `prepare` 이후 task 문서·설정·인용 문서를 고치면 fingerprint 가 stale 이다. `revise --task APP-001 --reason "..."` 로 DRAFT 로 돌아가 다시 prepare + Baseline.
+- `prepare` 이후 task 문서, ADR, `CLARIFICATIONS.json` 이 인용한 문서, 경계 계약, 승인 규칙을 고치면 fingerprint 가 stale 이다. `revise --task APP-001 --reason "..."` 로 DRAFT 로 돌아가 다시 prepare + Baseline.
 - 완료 프로필은 `verification-plan --task APP-001` 의 `profile` 이다: `verification.scopes` 가 없으면 `Full`, 있으면 `Task`.
 - 완료 run 이 PASS 가 아니면 REVIEW 로 못 간다. 고치고(IN_PROGRESS/VERIFYING 에서) 다시 run 한다. 완료 run 뒤에 소스를 바꾸면 그 run 은 무효다.
 - `review-decision.json`: `{"choice","rationale","alternatives":[≥1],"risks":[]}`. 사용 가능한 `pipeline-reviewer`가 diff와 증거를 검토한다. 기능이 없으면 별도 로컬 검토 후 자체 리뷰로 기록한다. 사람의 승인이 아니다.
-- 증거는 `Reports/Pipeline/<run-id>/`(`summary.json`, `logs/`, `artifacts/`, `screenshots/`)에 남는다. DONE 이후 보존은 `archive --task APP-001`.
+- 증거는 `Reports/Pipeline/<run-id>/`(`summary.json`, `logs/`, `artifacts/`, `screenshots/`)에 남는다. DONE 이후 보존은 `archive --task APP-001`. 아카이브는 실행 요약과 해시 확인된 산출물, 설정을 `EVIDENCE.zip` 에 담는다.
 
 ## 5. frontend task 의 스크린샷
 

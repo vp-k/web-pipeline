@@ -84,10 +84,13 @@ and a decision explaining the uncertainty, before editing fingerprint-bound reco
 Record BLOCKED through the normal transition when appropriate. Preserve unfinished
 code, logs and the original Baseline. Do not claim implementation succeeded.
 
-Use `revise` before changing prepared requirements/answers. It preserves the previous
-planning record and its old revision so answers are not silently carried forward as
-current. Reanalyze, retain still-applicable answers and update the record revision;
-ask only newly unresolved questions. Reprepare and capture the new revision's
+Use `revise` before changing prepared requirements/answers. It carries the task's
+current planning record and its own ADRs to the new revision and lists them as
+`carried` in REVISION_HISTORY.json; records owned by another task or already stale
+stay as they are. Carrying is not approval: every cited excerpt must still match its
+source, ADRs are re-approved or reviewed with the new fingerprint, and approvals and
+runs start empty. Re-read the analysis against the reason for the revision, keep
+still-applicable answers and ask only newly unresolved questions. Reprepare and capture the new revision's
 Baseline before further implementation; it is not the original pre-change Baseline.
 For a queue, reconcile the revised task and retry through the documented loop gates.
 No retry, timeout or generic keep-going instruction resolves a planning question.

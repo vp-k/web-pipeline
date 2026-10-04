@@ -21,10 +21,16 @@ class ScopedRecoveryTests(unittest.TestCase):
         fixture.start('PHASE-001')
         fixture.finish('PHASE-001')
         self.assertEqual('PASS', policy_check(fixture.root, task_id=fixture.task)['status'])
+        def member_errors():
+            merge = policy_check(fixture.root, gate='merge')
+            return [error for error in merge['errors'] if error.startswith(fixture.task)]
+        self.assertEqual([], member_errors())  # the Phase covers the member's stale tree
         phase = read_state(fixture.root, 'PHASE-001')
         phase['baseline_run'] = None  # adversarial metadata corruption in isolated fixture
         write_state(fixture.root, phase)
-        self.assertEqual('FAIL', policy_check(fixture.root, task_id=fixture.task)['status'])
+        # The sealed member stays DONE; merge readiness still needs a valid Phase to cover it.
+        self.assertEqual('PASS', policy_check(fixture.root, task_id=fixture.task)['status'])
+        self.assertTrue(member_errors())
 
     def test_retained_task_and_phase_runs_settle_their_reserved_budget(self):
         fixture = fixtures.ScopeTests()

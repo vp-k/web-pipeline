@@ -28,13 +28,19 @@ def engine_version() -> str:
     return match[1]
 
 
+def text_digest(path: Path) -> str:
+    """Matches the engine's receipts: a CRLF checkout of an LF text file is the same file."""
+    data = path.read_bytes()
+    return hashlib.sha256(data if b'\0' in data else data.replace(b'\r\n', b'\n')).hexdigest()
+
+
 def inventory() -> dict[str, str]:
     files = {}
     for path in sorted(KIT.rglob('*')):
         if path.is_symlink():
             raise SystemExit(f'kit must not contain links: {path}')
         if path.is_file() and '__pycache__' not in path.parts and path.suffix != '.pyc':
-            files[path.relative_to(KIT).as_posix()] = hashlib.sha256(path.read_bytes()).hexdigest()
+            files[path.relative_to(KIT).as_posix()] = text_digest(path)
     return files
 
 

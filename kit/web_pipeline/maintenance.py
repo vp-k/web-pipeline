@@ -1,6 +1,7 @@
 """Read-only diagnosis and explicit, recoverable managed-engine transactions.
 
-Receipts are local byte inventories, not signatures or approval records.
+Receipts are local content inventories, not signatures or approval records. Text is hashed without regard to
+CRLF/LF, so a Windows checkout of an unchanged engine is not a local edit.
 No project configuration, workflow state, budgets or product files are migrated.
 """
 from __future__ import annotations
@@ -11,7 +12,7 @@ import re
 import shutil
 import tempfile
 import uuid
-from .common import PipelineError, atomic_json, hash_file, held_locks, load_config, lock, safe_path, utc_now
+from .common import PipelineError, atomic_json, hash_file, held_locks, load_config, lock, safe_path, text_digest, utc_now
 
 MANAGED = ('web_pipeline', 'Schemas', 'Scripts')
 RECEIPT = '.pipeline-install.json'
@@ -43,8 +44,15 @@ def inventory(root):
             rel = path.relative_to(root).as_posix()
             safe_path(root, rel, True)
             if path.is_file() and '__pycache__' not in path.parts and path.suffix != '.pyc':
-                files[rel] = hash_file(path)
+                files[rel] = text_digest(path)
     return files
+
+
+def matches(path, digest):
+    """Whether a file still holds recorded content; receipts before 2.16 hold raw byte hashes, later ones text digests."""
+    if not path.is_file():
+        return digest is None
+    return digest is not None and digest in {text_digest(path), hash_file(path)}
 
 
 def version(root):
@@ -109,7 +117,8 @@ def preview(source, target, baseline=None):
     owned = project_owned(actual, old)
     collisions = sorted(set(owned) & new['files'].keys())
     if collisions: raise PipelineError('Project files collide with new engine files; rename them first: ' + ', '.join(collisions))
-    conflicts = sorted(p for p in (actual.keys() | old['files'].keys()) - set(owned) if actual.get(p) != old['files'].get(p))
+    conflicts = sorted(p for p in (actual.keys() | old['files'].keys()) - set(owned)
+                       if actual.get(p) != old['files'].get(p) and not matches(safe_path(target, p), old['files'].get(p)))
     if conflicts: raise PipelineError('Locally modified/missing managed files: ' + ', '.join(conflicts))
     if version(target) != old['engine_version']:
         raise PipelineError('Receipt engine version mismatch')
@@ -167,11 +176,11 @@ def upgrade(source, target, baseline=None, apply=False):
         for rel in plan['changed']:
             current = safe_path(target, rel)
             expected = plan['before']['files'].get(rel)
-            if (hash_file(current) if current.is_file() else None) != expected:
+            if not matches(current, expected):
                 raise PipelineError('Project changed during upgrade; restore transaction ' + transaction)
             if rel in plan['after']['files']:
                 origin = safe_path(source, rel, True)
-                if hash_file(origin) != plan['after']['files'][rel]:
+                if text_digest(origin) != plan['after']['files'][rel]:
                     raise PipelineError('Upgrade source changed; restore transaction ' + transaction)
                 _atomic_copy(origin, current)
             else:
@@ -201,16 +210,17 @@ def restore(target, transaction):
         actual = inventory(target)
         for rel in project_owned(actual, record['before'], record['after']): del actual[rel]
         for rel in actual.keys() | record['after']['files'].keys():
-            if rel not in record['changed'] and actual.get(rel) != record['after']['files'].get(rel):
+            if (rel not in record['changed'] and actual.get(rel) != record['after']['files'].get(rel)
+                    and not matches(safe_path(target, rel), record['after']['files'].get(rel))):
                 raise PipelineError('Post-upgrade managed edit blocks restore: ' + rel)
         # Check all paths and backup hashes before touching any file.
         for rel in record['changed']:
             current = safe_path(target, rel)
-            digest = hash_file(current) if current.is_file() else None
             old, new = record['before']['files'].get(rel), record['after']['files'].get(rel)
             allowed = {old, new} if record['status'] in {'PREPARED','RESTORING'} else {new}
-            if digest not in allowed: raise PipelineError('Post-upgrade user edit blocks restore: ' + rel)
-            if old and hash_file(safe_path(folder, 'backup/' + rel, True)) != old:
+            if not any(matches(current, digest) for digest in allowed):
+                raise PipelineError('Post-upgrade user edit blocks restore: ' + rel)
+            if old and not matches(safe_path(folder, 'backup/' + rel, True), old):
                 raise PipelineError('Backup hash mismatch: ' + rel)
         receipt_path = safe_path(target, RECEIPT)
         current_receipt = json.loads(receipt_path.read_text(encoding='utf-8-sig')) if receipt_path.exists() else None
