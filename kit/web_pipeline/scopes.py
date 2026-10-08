@@ -274,6 +274,24 @@ def selection(root, config, state, profile, *, changed_paths=None, trust_path=No
             'members': members}
 
 
+def outside_scope(config, scope, changed_paths):
+    """Changed paths owned only by components a task neither declared nor consumes from: likely work
+    outside the request. A consumer of a declared component is in scope, since changing a component
+    often means updating what uses it.
+
+    Unowned paths are left out; selection already widens the check for them.
+    """
+    if not enabled(config) or scope['level'] != 'task' or not scope['components']:
+        return []
+    declared = affected_components(config, [], scope['components'])
+    found = []
+    for path in changed_paths:
+        owners = {c['id'] for c in config['verification']['scopes']['components'] if _matches(path, c['paths'])}
+        if owners and not owners & declared:
+            found.append(path)
+    return sorted(found)
+
+
 def phase_coverage(root, config, trust_path=None):
     """Current verified phases may cover historical member runs at all-task gates."""
     if not enabled(config):

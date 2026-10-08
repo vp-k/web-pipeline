@@ -8,9 +8,23 @@ You review one pipeline task in a fresh context, without the implementer's assum
 
 ## Input you need
 
-The caller gives you the project root and either a TaskId (tracked) or, in a lean project, the feature description and the base revision of its diff. If neither form is complete, say so and stop.
+The caller gives you the project root and either a TaskId (tracked) or, in a lean project, the feature description. In a lean project the caller also passes the open `decisions` and the user's answers to them; you cannot see the conversation, so treat those answers as caller-supplied. If neither form is complete, say so and stop.
 
-For a lean feature there is no task folder. Use the feature description as the acceptance criteria, `git diff <base>` plus untracked files as the change, and the latest `check-*` summary under the report root as evidence. Skip the task-folder steps below and report `TASK: lean <base>`. Read the summary's `notices`, `weakened_checks` and `missing_checks` as well as its check results.
+For a lean feature there is no task folder. You may run only `python -m web_pipeline status` and read-only `git` commands; never run `check`, `feature` or anything else that writes. Take `commit_gate` from `status`: it is the decision `feature done` applies. APPROVE needs `ready` true. If `commit_gate` is missing, reports an `error` or is not `ready`, put its `reason` under NOT_REVIEWED and return CHANGES_REQUIRED. Use the feature description as the acceptance criteria and the summary of the gate's `run_id` under the report root as evidence. The change is `git diff <base>` plus untracked files, where `<base>` is the gate's `base`. Skip the task-folder steps below and report `TASK: lean <base>`.
+
+## Facts the engine already decided
+
+The engine finds these by script. Read them from the run's `summary.json` and judge each one; do not spend the review rediscovering them.
+
+- `test_changes` (lean): deleted test files, added skip or only markers, removed tests. Each needs a reason in the diff or the request; otherwise it is a blocking test-integrity finding.
+- `weakened_checks` (lean): check configuration made weaker since the base. Each needs a user decision recorded in a commit or passed by the caller; without one it is a blocking finding.
+- `notices`: dependency, environment-file, seed-data, changed check command and changed `package.json` script. Confirm each as described under Notices below.
+- `missing_checks`: required checks that are not enabled. A criterion only they would verify is UNVERIFIED.
+- `decisions` and `risk_tier` (lean): protected changes the paths imply, and the tier. Each decision needs the user's answer from the caller; without one it is a blocking finding.
+- `tracked_required` (lean): the paths classify as T4. Do not APPROVE; the work belongs in a tracked task.
+- `warnings` (lean): inputs the check could not read, such as the base configuration. Review those parts by hand, and list what you could not under NOT_REVIEWED.
+- `outside_scope` (tracked): changed paths owned only by components the task did not declare and that do not depend on a declared one. Each is a scope finding unless the request covers it.
+- `repeat` (both modes, in the run summary): the run repeated an earlier run of the same profile on the same inputs; its `status` says whether that run failed. `same_failure` (lean): runs that failed the same way with no pass of a profile at least as wide between them. Mention either only when the final evidence depends on it.
 
 ## Procedure
 

@@ -17,6 +17,11 @@ class BudgetLimit(PipelineError):
     pass
 
 
+# Narrowest to widest. A pass clears the failure count only when it is at least as wide as the
+# widest profile that failed since the count was last cleared.
+BREADTH = ('Fast', 'Task', 'Phase', 'Full')
+
+
 def seconds_between(start, end):
     seconds = (parse_time(end) - parse_time(start)).total_seconds()
     if seconds < 0:
@@ -27,7 +32,7 @@ def seconds_between(start, end):
 def new_accounting(task=False):
     result = {'budget_version': 1, 'active_seconds': 0.0, 'renewals': []}
     if task:
-        result.update(failed_attempts=0, pending_run=None)
+        result.update(failed_attempts=0, failed_profile=None, pending_run=None)
     return result
 
 
@@ -43,13 +48,33 @@ def additions(root, data):
     return minutes, attempts
 
 
-def grant(root, reason, extra_minutes, extra_attempts):
+def grant(root, reason, extra_minutes, extra_attempts, released=None):
     record = {'id': uuid.uuid4().hex, 'at': utc_now(), 'reason': reason,
               'extra_minutes': extra_minutes, 'extra_attempts': extra_attempts}
+    if released:
+        record['released'] = released
     validate_schema(root, 'renewal', record)
-    if not reason.strip() or not (extra_minutes or extra_attempts):
+    if not reason.strip() or not (extra_minutes or extra_attempts or released):
         raise PipelineError('Renew requires a substantive reason and a positive additional budget')
     return record
+
+
+def reached_stops(config, iteration):
+    """The failure stops a task reached; a count below its limit is not one."""
+    limits = config.get('iteration_limits', {})
+    return {key: iteration[key] for key, default in (('same_failure', 3), ('external_retries', 2))
+            if iteration.get(key, 0) >= limits.get(key, default)}
+
+
+def release_stops(iteration, released):
+    """End the sequences behind the released stops. Only a user-requested renewal calls this."""
+    if 'same_failure' in released:
+        iteration.update(same_failure=0, same_failure_profile=None)
+        for key in ('last_failure', 'last_failure_fingerprint'):
+            if key in iteration:
+                iteration[key] = None
+    if 'external_retries' in released:
+        iteration['external_retries'] = 0
 
 
 def task_remaining(config, iteration):
@@ -104,9 +129,42 @@ def enforce_task(config, state):
         if time_mode(limits) == 'enforce' and task_remaining(config, iteration) <= 0:
             raise BudgetLimit('iteration active-time limit reached; use loop renew --task')
     if iteration.get('same_failure', 0) >= limits.get('same_failure', 3):
-        raise PipelineError('same-failure limit reached')
+        raise PipelineError('same-failure limit reached; report the cause and log to the user. '
+                            'Only a user-requested loop renew --task releases it')
     if iteration.get('external_retries', 0) >= limits.get('external_retries', 2):
-        raise PipelineError('external retry limit reached')
+        raise PipelineError('external retry limit reached; report the blocker to the user. '
+                            'Only a user-requested loop renew --task releases it')
+
+
+def _rank(profile):
+    return BREADTH.index(profile) if profile in BREADTH else -1
+
+
+def covers(profile, failing):
+    """Whether a pass of `profile` ran what failed; `failing` is the widest profile that failed."""
+    return failing is None or _rank(profile) >= _rank(failing)
+
+
+def wider(first, second):
+    return second if _rank(second) > _rank(first) else first
+
+
+def _settle(iteration, summary):
+    """Turn the attempt reserved for this run into its result.
+
+    failed_attempts counts failures since the last covering pass. A test written first fails
+    once and then passes, so red-green work never exhausts the limit; only a run of failures
+    does. A narrower pass (Fast after a failed Full) proves nothing about the wider failure:
+    it refunds its own attempt and leaves the count.
+    """
+    profile, failing = summary.get('profile'), iteration.get('failed_profile')
+    if summary['status'] == 'PASS' and covers(profile, failing):
+        iteration['failed_attempts'] = 0
+        iteration['failed_profile'] = None
+    elif summary['status'] == 'PASS' or budget_only(summary):
+        iteration['failed_attempts'] -= 1
+    else:
+        iteration['failed_profile'] = wider(failing, profile)
 
 
 def finish_run(iteration, summary):
@@ -116,8 +174,7 @@ def finish_run(iteration, summary):
         raise PipelineError('Verification budget reservation mismatch')
     duration = seconds_between(summary['started_utc'], summary['completed_utc'])
     iteration['active_seconds'] += duration
-    if summary['status'] == 'PASS' or budget_only(summary):
-        iteration['failed_attempts'] -= 1
+    _settle(iteration, summary)
     iteration['pending_run'] = None
 
 
@@ -161,11 +218,15 @@ def migrate_task(root, config, state):
     exact = not uncertain and len(summaries) == iteration['attempts']
     iteration.update(new_accounting(task=True))
     if exact:
-        iteration['failed_attempts'] = sum(s['status'] != 'PASS' for s in summaries)
+        # Replay the retained runs under the same rule a live run follows.
+        for summary in sorted(summaries, key=lambda s: (s['started_utc'], s['run_id'])):
+            iteration['failed_attempts'] += 1
+            _settle(iteration, summary)
         iteration['active_seconds'] = sum(seconds_between(s['started_utc'], s['completed_utc']) for s in summaries)
     else:
         # Unknown old results are not invented as PASS or zero-time work.
         iteration['failed_attempts'] = before['attempts']
+        iteration['failed_profile'] = 'Full' if before['attempts'] else None  # only a Full pass clears unknowns
         iteration['active_seconds'] = seconds_between(before['started_utc'], utc_now()) if before['started_utc'] else 0
         if before['attempts'] and not before['started_utc']:
             raise PipelineError('Legacy attempts lack a start timestamp; restore original timing evidence')
@@ -187,7 +248,10 @@ def settle_interrupted(root, config, state):
         return {'run_id': pending['run_id'], 'method': 'retained_summary', 'sha256': hash_file(path)}
     duration = seconds_between(pending['started_utc'], utc_now())
     iteration['active_seconds'] += duration
-    iteration['pending_run'] = None  # reserved failure stays; no false PASS or pointer restoration
+    # The reserved failure stays at the profile it was reserved for, so a narrower pass cannot
+    # clear it. A reservation from before the profile was recorded counts as Full.
+    iteration['failed_profile'] = wider(iteration.get('failed_profile'), pending.get('profile') or 'Full')
+    iteration['pending_run'] = None  # no false PASS or pointer restoration
     return {'run_id': pending['run_id'], 'method': 'unknown_nonpass_conservative_time', 'seconds': duration}
 
 

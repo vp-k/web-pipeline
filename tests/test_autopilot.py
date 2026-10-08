@@ -240,6 +240,9 @@ class AutopilotTests(unittest.TestCase):
         autopilot.retry(self.root, self.f.task, 'Retry cannot manufacture a reset')
         self.assertEqual('WAITING', self.next()['status'])
         self.assertEqual(3, read_state(self.root, self.f.task)['iteration']['attempts'])
+        # Only the user, naming the cause, releases the stop.
+        autopilot.renew(self.root, task_id=self.f.task, reason='User found the cause and asked to resume')
+        self.assertEqual('REPAIR', self.next()['action'])
 
     def test_elapsed_limit_and_invalid_checkpoint_fail_closed(self):
         self.begin()

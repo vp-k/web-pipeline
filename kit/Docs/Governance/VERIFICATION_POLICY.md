@@ -58,28 +58,37 @@ Reports/Pipeline/<RunId>/
 
 ## Iteration
 
-Default bounds are 5 failed Fast/Task/Phase/Full runs, 3 repeats of the
-same substantive failure fingerprint, 2 external retries, or 120 active verification
-minutes. `attempts` retains every run, including PASS; the compatibility config key
+Default bounds are 5 failed Fast/Task/Phase/Full runs since the last covering
+PASS, 3 repeats of the same substantive failure fingerprint, 2 external retries, or
+120 active verification minutes. Profiles rank in the order Fast, Task, Phase, Full.
+A covering PASS is a PASS whose profile ranks at or above the highest-ranked profile
+that failed since the count was last cleared; it clears the count. The rank orders the
+profiles only: a configuration can still give a lower-ranked profile a check that a
+higher one lacks. A lower-ranked PASS refunds only its own reserved attempt. `attempts` retains every run, including PASS; the compatibility config key
 `total_attempts` caps `failed_attempts`. A pending interrupted run is reserved as
-non-PASS until evidence settles it. Active time sums Fast/Full summary intervals,
+non-PASS until evidence settles it. Without its summary it stays a failure at the
+profile it was reserved for, or at Full for a reservation an older engine made. Active time sums Fast/Full summary intervals,
 not wall time since the first run. Baseline/Policy/Release retain their phase gates
 and command timeouts; they do not spend the Fast/Full failed-run budget.
 
 New adoption defaults to `time_budget_mode: warn`: cumulative time produces a warning, not a stop or another permission prompt. Missing mode in older configurations retains enforce. Individual command timeouts remain effective. Reaching an enforced limit pauses automatic work. User-requested `loop renew --task ...`
 appends additional minutes/failed-attempt budget without rewriting initial limits,
 past usage or source fingerprints. Revision preserves all budget history. Renew
-does not reset same-failure/external guards, approve exceptions, or grant readiness.
-There is no reset API. Old accounting migrates explicitly through renew with its
+does not approve exceptions or grant readiness. A same-failure or external-retry stop
+that was reached is released only by a user-requested task renewal naming the cause;
+the grant records the released counts, and a count below its stop is kept. There is
+no other reset. Old accounting migrates explicitly through renew with its
 original block and evidence hashes retained; see the continuous runbook.
 
 Time-budget exhaustion remains BLOCKED/non-PASS. A conclusive budget-only result
 refunds its reserved failed attempt; mixed or unknown failures do not. It does not
 consume external retries or clear the existing same-failure sequence.
-Actual spawn/execution blockers still consume external retries. Command timeout
+Actual spawn/execution blockers still consume external retries. Only blockers in a
+row count: a run with no external blocker whose commands started ends the count, and a
+run stopped by the time budget leaves it. Command timeout
 independent of the overall time budget remains a real failed check.
 
-Valid authorized NOT_APPLICABLE outcomes are excluded from failure fingerprints. Successful runs clear the consecutive-failure count. Duplicate or invalid run IDs are rejected before incrementing attempts or clearing existing Full/Release pointers.
+Valid authorized NOT_APPLICABLE outcomes are excluded from failure fingerprints. A PASS ends the same-failure sequence only when it ranks at or above every run in that sequence; a lower-ranked PASS leaves it. Duplicate or invalid run IDs are rejected before incrementing attempts or clearing existing Full/Release pointers.
 
 The engine checks process exit and evidence integrity, not semantic test coverage.
 The engine optionally validates structured per-case test results, minimum executed

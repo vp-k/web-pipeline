@@ -9,7 +9,7 @@ from web_pipeline import autopilot
 from web_pipeline.budget import BudgetLimit, enforce_task, seconds_between
 from web_pipeline.cli import _parser, dispatch
 from web_pipeline.common import (PipelineError, atomic_json, atomic_text, load_config,
-                                 read_state, source_fingerprint, write_state)
+                                 read_state, source_fingerprint, utc_now, write_state)
 from web_pipeline.runner import run_profile
 from web_pipeline.state import create_task, prepare_task, revise_task, transition
 
@@ -70,8 +70,106 @@ class RenewalTests(unittest.TestCase):
         self.assertEqual('PASS', run_profile(self.root, self.task, 'Fast')['status'])
         final = read_state(self.root, self.task)['iteration']
         self.assertEqual(2, final['attempts'])
-        self.assertEqual(1, final['failed_attempts'])
+        self.assertEqual(0, final['failed_attempts'])  # the limit counts failures since the last pass
         self.assertEqual(0, final['same_failure'])
+
+    def test_red_green_cycles_never_exhaust_the_failed_attempt_limit(self):
+        self.configure(lambda c: c['iteration_limits'].update(total_attempts=2))
+        self.start_task()
+        for cycle in range(3):
+            atomic_text(self.root / 'app.py', f'value = {100 + cycle}\n')  # a new test fails first
+            self.assertEqual('FAIL', run_profile(self.root, self.task, 'Fast')['status'])
+            atomic_text(self.root / 'app.py', 'value = 4\n')
+            self.assertEqual('PASS', run_profile(self.root, self.task, 'Fast')['status'])
+        self.assertEqual(0, read_state(self.root, self.task)['iteration']['failed_attempts'])
+
+    def test_a_narrower_pass_does_not_clear_a_wider_failure(self):
+        self.start_task()
+        atomic_text(self.root / 'app.py', 'value = 100\n')
+        self.assertEqual('FAIL', run_profile(self.root, self.task, 'Full')['status'])
+        atomic_text(self.root / 'app.py', 'value = 4\n')
+        self.assertEqual('PASS', run_profile(self.root, self.task, 'Fast')['status'])
+        iteration = read_state(self.root, self.task)['iteration']
+        self.assertEqual((1, 'Full'), (iteration['failed_attempts'], iteration['failed_profile']))
+        self.assertEqual('PASS', run_profile(self.root, self.task, 'Full')['status'])
+        iteration = read_state(self.root, self.task)['iteration']
+        self.assertEqual((0, None), (iteration['failed_attempts'], iteration['failed_profile']))
+
+    def test_migration_counts_a_narrower_pass_the_same_way(self):
+        self.start_task()
+        atomic_text(self.root / 'app.py', 'value = 100\n')
+        self.assertEqual('FAIL', run_profile(self.root, self.task, 'Full', run_id='legacy-full')['status'])
+        atomic_text(self.root / 'app.py', 'value = 4\n')
+        self.assertEqual('PASS', run_profile(self.root, self.task, 'Fast', run_id='legacy-fast')['status'])
+        state = read_state(self.root, self.task)
+        for key in (*NEW_FIELDS, 'failed_profile'):
+            state['iteration'].pop(key, None)
+        write_state(self.root, state)
+        result = self.renew_task(extra_minutes=10)
+        self.assertEqual('retained_summaries', result['grant']['migration']['method'])
+        after = read_state(self.root, self.task)['iteration']
+        self.assertEqual((1, 'Full'), (after['failed_attempts'], after['failed_profile']))
+
+    def test_a_revised_task_is_a_new_input_for_repeat(self):
+        self.start_task()
+        atomic_text(self.root / 'app.py', 'value = 100\n')
+        self.assertEqual('FAIL', run_profile(self.root, self.task, 'Fast')['status'])
+        revise_task(self.root, self.task, 'User changed acceptance scope')
+        prepare_task(self.root, self.task)
+        run_profile(self.root, self.task, 'Baseline', run_id='baseline-002')
+        transition(self.root, self.task, 'READY')
+        transition(self.root, self.task, 'IN_PROGRESS')
+        self.assertIsNone(run_profile(self.root, self.task, 'Fast')['repeat'])
+
+    def test_a_rerun_on_the_same_tree_and_config_is_reported(self):
+        self.start_task()
+        atomic_text(self.root / 'app.py', 'value = 100\n')
+        first = run_profile(self.root, self.task, 'Fast')
+        self.assertIsNone(first['repeat'])
+        again = run_profile(self.root, self.task, 'Fast')
+        self.assertEqual({'run_id': first['run_id'], 'status': 'FAIL'}, again['repeat'])
+        # The run's summary is the record: what run returns is what it stored.
+        stored = self.root / load_config(self.root)['project']['report_root'] / again['run_id'] / 'summary.json'
+        self.assertEqual(again, json.loads(stored.read_text(encoding='utf-8')))
+        atomic_text(self.root / 'app.py', 'value = 4\n')
+        self.assertIsNone(run_profile(self.root, self.task, 'Fast')['repeat'])
+
+    def test_a_rerun_is_found_past_a_run_of_another_profile(self):
+        self.start_task()
+        atomic_text(self.root / 'app.py', 'value = 100\n')
+        fast = run_profile(self.root, self.task, 'Fast')
+        self.assertIsNone(run_profile(self.root, self.task, 'Full')['repeat'])
+        self.assertEqual({'run_id': fast['run_id'], 'status': 'FAIL'},
+                         run_profile(self.root, self.task, 'Fast')['repeat'])
+
+    def test_a_narrower_pass_does_not_end_a_wider_same_failure(self):
+        self.start_task()
+        counts = []
+        for value, profile in (('100', 'Full'), ('4', 'Fast'), ('100', 'Full')):
+            atomic_text(self.root / 'app.py', f'value = {value}\n')
+            run_profile(self.root, self.task, profile)
+            counts.append(read_state(self.root, self.task)['iteration']['same_failure'])
+        self.assertEqual([1, 1, 2], counts)  # the Fast pass did not run what Full failed
+        atomic_text(self.root / 'app.py', 'value = 4\n')
+        self.assertEqual('PASS', run_profile(self.root, self.task, 'Full')['status'])
+        iteration = read_state(self.root, self.task)['iteration']
+        self.assertEqual((0, None), (iteration['same_failure'], iteration['last_failure']))
+
+    def test_an_interrupted_run_without_a_summary_keeps_its_failure(self):
+        self.start_task()
+        cases = (({'run_id': 'lost-task', 'profile': 'Task'}, 'Task'),
+                 ({'run_id': 'lost-legacy'}, 'Full'))  # a reservation without a profile counts as the widest
+        for count, (reservation, kept) in enumerate(cases, start=1):
+            state = read_state(self.root, self.task)
+            state['iteration']['attempts'] += 1  # as the runner reserves before a run that never finished
+            state['iteration']['failed_attempts'] += 1
+            state['iteration']['pending_run'] = {**reservation, 'started_utc': utc_now()}
+            write_state(self.root, state)
+            settlement = self.renew_task(extra_minutes=1)['grant']['settlement']
+            self.assertEqual('unknown_nonpass_conservative_time', settlement['method'])
+            self.assertEqual('PASS', run_profile(self.root, self.task, 'Fast')['status'])
+            iteration = read_state(self.root, self.task)['iteration']
+            self.assertEqual((count, kept), (iteration['failed_attempts'], iteration['failed_profile']))
 
     def test_old_creation_time_does_not_spend_queue_or_task_active_budget(self):
         self.f.begin()
@@ -130,23 +228,47 @@ class RenewalTests(unittest.TestCase):
         self.renew_task(extra_minutes=30)
         self.assertEqual('IMPLEMENT', self.f.next()['action'])
 
-    def test_renew_never_resets_same_failure_external_or_approval_state(self):
+    def test_renew_releases_a_reached_failure_stop_but_no_approval_state(self):
         state = read_state(self.root, self.task)
-        state['iteration'].update(same_failure=3, external_retries=2)
+        state['iteration'].update(same_failure=3, same_failure_profile='Full', last_failure='a' * 64,
+                                  external_retries=2)
         write_state(self.root, state)
+        with self.assertRaisesRegex(PipelineError, 'same-failure'):
+            enforce_task(self.config(), state)
         before_fingerprint = source_fingerprint(self.root, self.config(), state)
-        self.renew_task(extra_minutes=30, extra_attempts=5)
+        # A reached stop is reason enough to renew: the user names the cause, no extra budget needed.
+        result = autopilot.renew(self.root, task_id=self.task, reason='User found the cause: the fixture port was taken')
         after = read_state(self.root, self.task)
-        for key in ('same_failure', 'external_retries'):
-            self.assertEqual(state['iteration'][key], after['iteration'][key])
+        self.assertEqual({'same_failure': 3, 'external_retries': 2}, after['iteration']['renewals'][-1]['released'])
+        self.assertEqual((0, None, None, 0), tuple(after['iteration'][key] for key in
+                                                   ('same_failure', 'same_failure_profile', 'last_failure',
+                                                    'external_retries')))
+        self.assertIsNone(result['remaining_limit'])
         for key in ('approvals', 'exceptions', 'status', 'revision', 'fingerprint', 'baseline_run', 'full_run', 'release_run'):
             self.assertEqual(state[key], after[key])
         self.assertEqual(before_fingerprint, source_fingerprint(self.root, self.config(), after))
-        with self.assertRaisesRegex(PipelineError, 'same-failure'):
-            enforce_task(self.config(), after)
-        after['iteration']['same_failure'] = 0  # isolated check of the other unchanged guard
-        with self.assertRaisesRegex(PipelineError, 'external retry'):
-            enforce_task(self.config(), after)
+        enforce_task(self.config(), after)
+
+    def test_renew_keeps_failure_counts_below_their_stop(self):
+        state = read_state(self.root, self.task)
+        state['iteration'].update(same_failure=2, last_failure='a' * 64, external_retries=1)
+        write_state(self.root, state)
+        with self.assertRaises(PipelineError):
+            self.renew_task()  # no budget and no reached stop: nothing to grant
+        self.renew_task(extra_minutes=30)
+        after = read_state(self.root, self.task)['iteration']
+        self.assertEqual((2, 'a' * 64, 1), (after['same_failure'], after['last_failure'], after['external_retries']))
+        self.assertNotIn('released', after['renewals'][-1])
+
+    def test_a_run_whose_commands_start_ends_the_external_retry_count(self):
+        self.start_task()
+        state = read_state(self.root, self.task)
+        state['iteration']['external_retries'] = 1
+        write_state(self.root, state)
+        atomic_text(self.root / 'app.py', 'value = 100\n')
+        self.assertEqual('FAIL', run_profile(self.root, self.task, 'Fast')['status'])
+        # The command ran, so the environment that blocked it is back; only blocks in a row count.
+        self.assertEqual(0, read_state(self.root, self.task)['iteration']['external_retries'])
 
     def test_revise_preserves_new_usage_and_renewal_history(self):
         self.start_task()

@@ -16,8 +16,11 @@ handoff note. Resolve causes within the existing request before ending the turn.
 | Git conflict/error | Preserve changes and finish the authorized integration before new feature work | A content decision or destructive recovery is not authorized |
 | Review tool unavailable | Perform and record a separate local self-review for ordinary standard work | The policy requires human/independent review that is unavailable |
 
-Do not repeat a verification blocked by the same cause before fixing that cause.
-If resource contention or a timeout persists after one diagnosis, report the
+A run reports `repeat` when the task's previous run of the same profile used the
+same checks, task revision and approved exceptions on the same tree and verification
+policy. A failing `repeat` proved nothing new: change the cause before running again,
+or name the environment change that justifies the rerun. If resource contention or a
+timeout persists after one diagnosis, report the
 blocker and continue other feature work. Reuse received approvals and valid
 evidence; state recovery is not a reason to ask for the same decision again.
 

@@ -93,6 +93,24 @@ class ReviewRegressions(unittest.TestCase):
             self.assertEqual(0, read_state(f.root, f.task)['iteration']['same_failure'])
         self.assertEqual('PASS', run_profile(f.root, f.task, 'Full', trust_path=f.trust, run_id='na-full')['status'])
 
+    def test_an_approved_exception_is_a_new_input_for_repeat(self):
+        test = execution.ExecutionIntegrationTests(methodName='test_real_signed_exception_runs_and_revalidates_as_not_applicable')
+        test.setUp()
+        self.addCleanup(test.doCleanups)
+        test.test_real_signed_exception_runs_and_revalidates_as_not_applicable()
+        f = test.fixture
+        transition(f.root, f.task, 'READY', trust_path=f.trust)
+        transition(f.root, f.task, 'IN_PROGRESS', trust_path=f.trust)
+        first = run_profile(f.root, f.task, 'Fast', trust_path=f.trust, run_id='first-exception')
+        again = run_profile(f.root, f.task, 'Fast', trust_path=f.trust, run_id='first-exception-again')
+        self.assertEqual(first['run_id'], again['repeat']['run_id'])
+        # Exception records live outside the code tree, yet they change what a check may conclude.
+        relative = read_state(f.root, f.task)['exceptions'][0]
+        payload = dict(json.loads((f.root / relative).read_text(encoding='utf-8'))['payload'],
+                       reason='Test-only replacement exception')
+        atomic_json(f.root / relative, {'payload': payload, 'signature': test._sign(payload)})
+        self.assertIsNone(run_profile(f.root, f.task, 'Fast', trust_path=f.trust, run_id='second-exception')['repeat'])
+
     def test_acceptance_check_outside_domain_is_executed_by_full(self):
         f = self.fixture()
         atomic_json(f.root / f'Docs/Work/{f.task}/ACCEPTANCE.json', {'criteria': [

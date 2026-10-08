@@ -36,19 +36,9 @@ description: Adopt, configure, operate or audit the Web Development Pipeline - l
 
 `status`의 `workflow` 값을 먼저 본다. 값이 없으면 `tracked`다.
 
-**lean** (새 도입 기본값):
+**lean** (새 도입 기본값): 규칙은 프로젝트의 `Docs/Runbooks/LEAN.md` 한 곳에만 있다. 여기와 명령 문서는 그 파일을 가리키기만 한다.
 
-1. 사용 가능한 기능 하나가 작업 단위다. 스키마, 시드, 타입, API, UI를 따로 쪼개지 않는다.
-   - 프로젝트 전체를 만들 때는 `feature add`로 기능 목록을 만든 순서대로 쌓는다. `feature next`로 하나씩 시작하고 `feature done`으로 닫는다.
-2. 테스트는 구현과 함께 쓴다.
-3. 커밋 전마다 `python -m web_pipeline check`를 돌린다. 실패하면 먼저 고친다. 구현 중 반복은 `check --profile Fast`.
-   - `verification.scopes`에 컴포넌트가 있으면 기본 check는 Task다. 바뀐 컴포넌트와 소비자만 돌고, 넓은 변경은 전체로 넓어진다. 릴리스나 병합 전에는 Full을 한 번 돌린다.
-4. check는 켜진 실제 check로 시작한다. 켜지지 않은 필수 check는 `missing_checks`와 표의 `Not enabled` 줄로 남는다. 실제 check가 하나도 없으면 FAIL이다.
-5. 기능마다 `pipeline-reviewer`로 새 컨텍스트 리뷰를 한 번 받는다. check의 `notices`도 리뷰에 넘긴다.
-6. 커밋 메시지 본문에 check 출력의 `commit_table`을 넣는다.
-7. check의 `decisions`에 있는 스키마, 인증, 개인정보, 보안 결정은 한 번에 묶어 묻는다. `weakened_checks`도 같이 묻는다. 답은 커밋 메시지에 남긴다.
-8. `tracked_required: true`거나 결제, 배포, Release, 운영, 파괴적 마이그레이션 작업이면 추적 task를 쓴다. check가 표시하지 않아도 의미상 T4이거나 사용자가 감사 증거를 요청하면 같다. 기준은 프로젝트의 `Docs/Runbooks/LEAN.md`다.
-9. `Docs/Work`에는 기능 목록 `FEATURES.json`만 둔다. task 폴더와 절차 메모를 만들지 않는다.
+- 기능 개발은 `/web-pipeline:check` 흐름으로 LEAN.md를 따른다.
 
 **tracked**: 모든 변경이 `Docs/Work/<TaskId>/` task다. 아래 작업 리듬과 절대 규칙을 따른다.
 
@@ -58,11 +48,11 @@ description: Adopt, configure, operate or audit the Web Development Pipeline - l
 
 ## 작업 리듬
 
-기능 하나를 구현하고, 관련 검사로 확인하고, 다음 기능으로 넘어간다.
+기능 하나를 구현하고, 관련 검사로 확인하고, 다음 기능으로 넘어간다. lean은 LEAN.md를 따른다. 아래는 tracked task의 리듬이다.
 
 1. 구현 중에는 `Fast`로 바뀐 component의 검사만 돌린다. 실패하면 고치고 다시 돌린다.
 2. 기능이 동작하면 완료 프로필을 한 번 돌리고 리뷰·DONE으로 닫는다. 프로젝트 전체 검증은 통합 시점의 Phase·Full에서 한다.
-3. 같은 원인으로 실패하거나 중단된 검증을 원인을 고치지 않은 채 다시 돌리지 않는다. 원인을 못 고치면 차단 사유 한 줄을 남기고 막히지 않은 기능 작업으로 간다.
+3. 실패한 검증은 원인을 고친 뒤 다시 돌린다. 같은 프로필의 직전 run과 check, task 리비전, 승인된 예외, 트리, 검증 설정이 모두 같으면 엔진이 `repeat`로 알려 준다. 코드를 안 바꾸고 다시 돌리려면 바뀐 환경을 먼저 밝힌다. 원인을 못 고치면 차단 사유 한 줄을 남기고 막히지 않은 기능 작업으로 간다.
 4. 엔진이 요구하지 않는 절차 메모를 만들지 않는다. 재개 메모, 실행 노트, 정리 기록 같은 파일이다. 상태는 STATE와 증거가 담는다.
 5. 진행 보고는 완성한 기능과 실제 검사 결과로 한다. 명령을 몇 번 돌렸는지는 성과가 아니다.
 

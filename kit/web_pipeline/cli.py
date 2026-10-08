@@ -80,7 +80,8 @@ def _parser() -> argparse.ArgumentParser:
     check = commands.add_parser('check', help='lean workflow: run enabled checks on the working tree without a task')
     check.add_argument('--profile', choices=['Fast', 'Task', 'Full'],
                        help='default: Task when verification.scopes declares components, otherwise Full')
-    check.add_argument('--base-ref', default='HEAD', help='changed paths are compared with this revision (default: HEAD)')
+    check.add_argument('--base-ref', help='changed paths are compared with this revision '
+                       '(default: the commit the active feature started from, otherwise HEAD)')
     feature = commands.add_parser('feature', help='lean workflow: the project feature backlog in build order')
     feature_commands = feature.add_subparsers(dest='feature_command', required=True)
     feature_commands.add_parser('add', help='append a feature').add_argument('title')
@@ -117,7 +118,8 @@ def _parser() -> argparse.ArgumentParser:
     recover = loop_commands.add_parser('recover')
     recover.add_argument('--token', required=True)
     recover.add_argument('--reason', required=True)
-    renew = loop_commands.add_parser('renew', help='explicit additive execution budget, not approval or reset')
+    renew = loop_commands.add_parser('renew', help='explicit additive execution budget, or release of a reached '
+                                   'failure stop; not approval or reset')
     target = renew.add_mutually_exclusive_group(required=True)
     target.add_argument('--task')
     target.add_argument('--queue', action='store_true')
@@ -263,6 +265,16 @@ def _status(root: Path, task_id=None) -> dict:
             if backlog is not None: result['features'] = backlog
         except (PipelineError, ValueError, OSError, KeyError) as exc:
             result['features'] = {'error': str(exc)}
+        try:
+            from .lean import last_check
+            result['last_check'] = last_check(root, config)
+        except (PipelineError, ValueError, OSError, KeyError) as exc:
+            result['last_check'] = {'error': str(exc)}
+        try:
+            from .features import commit_gate
+            result['commit_gate'] = commit_gate(root, config)
+        except (PipelineError, ValueError, OSError, KeyError) as exc:
+            result['commit_gate'] = {'ready': False, 'error': str(exc)}
     stale = [item['name'] for item in locks if not item['alive']]
     open_tasks = [item for item in tasks if item['status'] != 'DONE']
     if project['mode'] == 'project' and result['ready']:

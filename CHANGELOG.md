@@ -1,5 +1,46 @@
 # Changelog
 
+## 2.17.0 — 스크립트로 잡는 반복과 허위 완료
+
+lean 규칙을 한 곳으로 모으고, 스크립트로 판단할 수 있는 것은 엔진이 판단한다. 막는 것은 확정된 문제뿐이다. 나머지는 `next` 안내와 리뷰 항목으로 남긴다.
+
+lean check:
+
+- 같은 프로필을 같은 트리, 같은 설정 파일 전체, 같은 비교 기준으로 다시 돌리면 `repeat`가 이전 run을 알린다. 실패한 run을 되풀이했으면 `next`가 코드를 먼저 바꾸라고 안내한다.
+- `same_failure`가 같은 실패가 이어진 횟수를 센다. Full 실패 뒤의 Fast PASS는 이 횟수를 끊지 않는다. `iteration_limits.same_failure`에 닿으면 `next`가 원인 분석이나 사용자 확인을 요구한다. 기본값은 3이다.
+- `test_changes`가 기준 이후의 테스트 변경을 나열한다. 지운 테스트 파일, 추가된 skip과 only 표시, 줄어든 테스트 수다. 리뷰가 하나씩 확인한다.
+- `test_report`를 선언한 check는 보고서가 없거나 기준에 못 미치면 FAIL이다. 이전에는 lean에서 종료 코드만 봤다.
+- `weakened_checks`가 `test_report` 삭제와 완화도 잡는다. 대상은 `min_tests`, `max_skipped`, `required_groups`다.
+- `notices`가 check 명령의 `argv`와 `cwd` 변경을 알린다. check가 부르는 `package.json` 스크립트와 그 pre, post 스크립트 변경도 알린다.
+- `feature next`가 시작 커밋을 `base_commit`으로 남긴다. check의 기본 비교 기준이 된다. 기능 중간 커밋이 앞선 변경을 가리지 못한다.
+- check는 기준과 HEAD의 merge-base에서 비교하고 그 커밋을 `base_commit`으로 남긴다. 기준 브랜치가 앞서 나가도 그 커밋들을 이번 변경으로 세지 않는다.
+- `feature done`은 마지막 check 뒤에 코드나 설정 파일의 어느 부분이든 바뀌었으면 거부한다. 기능 시작 커밋보다 늦은 `--base-ref`로 돌린 check도 거부한다.
+- 기준 시점의 설정 파일을 비교할 수 없는 형태면 멈추지 않고 `warnings`에 남긴다.
+- `status`가 `last_check`로 마지막 check와 현재 트리 일치 여부를 보여 준다. 대화가 요약된 뒤에도 다시 돌릴지 판단할 수 있다.
+- `status`가 `commit_gate`로 `feature done`의 판정을 미리 보여 준다. 쓸 check, 비교 기준, 안 되는 이유가 나온다. backlog가 없는 프로젝트도 같은 규칙을 쓴다.
+- Fast check가 통과하면 `next`가 커밋 전 check를 안내한다. Fast PASS로는 기능을 끝낼 수 없다.
+
+tracked:
+
+- 실패 시도 한도는 실패한 가장 넓은 프로필 이상의 PASS가 나오면 0으로 돌아간다. 테스트를 먼저 써서 실패시킨 뒤 통과시키는 작업이 한도를 쓰지 않는다.
+- Full 실패 뒤의 Fast PASS는 그 실패를 지우지 않고 자기 예약분만 돌려받는다. 같은 실패 반복 횟수도 끊지 않는다.
+- 요약 없이 중단된 run은 예약한 프로필의 실패로 남는다. 그보다 좁은 PASS가 그 실패를 지우지 못한다.
+- `run` 결과와 run 요약에 `repeat`가 남는다. 같은 프로필의 직전 run과 check, task 리비전, 승인된 예외, 트리, 검증 설정이 모두 같을 때다. 사이에 다른 프로필 run이 있어도 찾는다.
+- scopes를 쓰면 run 요약에 `outside_scope`가 붙는다. task가 선언하지 않았고 선언한 component에 의존하지도 않는 component만 소유한 변경 경로다.
+- 같은 실패나 외부 재시도 한도에 닿은 task는 사용자가 요청한 `loop renew --task`로 다시 진행한다. 추가 예산 없이 사유만으로 되고, 푼 횟수가 기록에 남는다. 한도 아래의 횟수는 그대로다.
+- 외부 재시도는 외부 원인으로 연달아 막힌 run만 센다. 외부 차단 없이 명령이 실행된 run이 나오면 0으로 돌아간다.
+
+문서와 리뷰:
+
+- lean 규칙을 `LEAN.md` 한 곳으로 모았다. `PIPELINE.md`, 스킬, `/web-pipeline:check`는 그 파일을 가리킨다. 검사 출력 표가 각 필드의 뜻과 할 일을 정한다.
+- `pipeline-reviewer`가 엔진이 찾은 사실을 요약에서 읽고 판단한다. lean은 `commit_gate`가 `ready`일 때만 승인한다. `feature done`과 같은 판정이라 둘이 엇갈리지 않는다. 사용자 결정은 호출자가 넘긴 답으로 판단하고, check를 직접 돌리지 않는다.
+- 업그레이드는 `Docs/`를 바꾸지 않는다. 복사할 문서와 순서는 플러그인 kit의 `UPDATES.md` 2.17 절에 있다.
+- 2.17 전에 기록된 lean check는 `current`가 아니다. 기능을 끝내기 전에 check를 한 번 다시 돌린다.
+
+저장소 도구:
+
+- `tools/test.py`의 기본 워커 수를 CPU 절반, 최대 4로 낮췄다.
+
 ## 2.16.0 — 프로젝트 전체를 끝까지
 
 설치본으로 앱 하나를 처음부터 Release까지 진행해 본 결과를 반영했다.

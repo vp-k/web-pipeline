@@ -10,7 +10,11 @@
     "extra_attempts": {"type": "integer", "minimum": 0, "maximum": 1000},
     "migration": {"type": ["object", "null"]},
     "settlement": {"type": ["object", "null"]},
-    "usage_before": {"type": "object"}
+    "usage_before": {"type": "object"},
+    "released": {"type": "object", "additionalProperties": false, "minProperties": 1,
+                 "properties": {"same_failure": {"type": "integer", "minimum": 1},
+                                "external_retries": {"type": "integer", "minimum": 1}}}
   },
-  "anyOf": [{"properties": {"extra_minutes": {"minimum": 1}}}, {"properties": {"extra_attempts": {"minimum": 1}}}]
+  "anyOf": [{"properties": {"extra_minutes": {"minimum": 1}}}, {"properties": {"extra_attempts": {"minimum": 1}}},
+            {"required": ["released"]}]
 }

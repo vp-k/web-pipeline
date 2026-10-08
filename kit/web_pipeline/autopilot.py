@@ -13,7 +13,7 @@ from .common import (PipelineError, atomic_json, canonical_hash, code_snapshot, 
                      load_config, lock, read_state, safe_path, source_fingerprint,
                      utc_now, validate_schema)
 from .common import write_state
-from .budget import (BudgetLimit, additions, grant, migrate_queue, migrate_task,
+from .budget import (BudgetLimit, additions, grant, migrate_queue, migrate_task, reached_stops, release_stops,
                      new_accounting, seconds_between, settle_interrupted, time_mode, time_warnings)
 from .runner import _enforce_iteration_limits, run_profile, validate_completion
 from .state import policy_check, transition
@@ -529,17 +529,20 @@ def reconcile(root, task_id, reason):
 
 
 def renew(root, *, task_id=None, queue_target=False, reason, extra_minutes=0, extra_attempts=0):
-    """Add a bounded user-requested grant, never approval, reset, or scope change."""
+    """Add a bounded user-requested grant or release a failure stop the task reached.
+
+    Never an approval, a scope change or a reset of usage; a failure count below its stop is kept.
+    """
     root = Path(root).resolve()
     if bool(task_id) == bool(queue_target):
         raise PipelineError('Select exactly one renewal target: --queue or --task')
-    record = grant(root, reason, extra_minutes, extra_attempts)
     config = load_config(root)
     with lock(root, 'autopilot'):
         queue = _load(root) if safe_path(root, QUEUE).exists() else None
         if queue and queue['lease']:
             raise PipelineError('Complete or recover the unfinished lease before renew; inspect running processes')
         if queue_target:
+            record = grant(root, reason, extra_minutes, extra_attempts)
             if queue is None:
                 raise PipelineError('No queue exists to renew')
             record['usage_before'] = {key: queue.get(key) for key in ('steps', 'active_seconds')}
@@ -554,11 +557,14 @@ def renew(root, *, task_id=None, queue_target=False, reason, extra_minutes=0, ex
             state = read_state(root, task_id)
             if state['status'] == 'DONE':
                 raise PipelineError('DONE work needs no new execution budget; revise authorized scope first')
+            released = reached_stops(config, state['iteration'])
+            record = grant(root, reason, extra_minutes, extra_attempts, released)
             record['usage_before'] = {key: state['iteration'].get(key) for key in
                                       ('attempts', 'failed_attempts', 'active_seconds')}
             record['migration'] = migrate_task(root, config, state)
             additions(root, state['iteration'])
             record['settlement'] = settle_interrupted(root, config, state)
+            release_stops(state['iteration'], released)
             state['iteration']['renewals'].append(record)
             state['updated_utc'] = utc_now()
             write_state(root, state)
@@ -570,4 +576,4 @@ def renew(root, *, task_id=None, queue_target=False, reason, extra_minutes=0, ex
             return {'status': 'RENEWED', 'target': task_id, 'grant': record,
                     'iteration': state['iteration'], 'budgets_reset': False,
                     'remaining_limit': remaining_limit,
-                    'instruction': 'Resume through normal gates; renew grants no approval and does not clear failure guards'}
+                    'instruction': 'Resume through normal gates; renew grants no approval and releases only a failure stop the task reached'}

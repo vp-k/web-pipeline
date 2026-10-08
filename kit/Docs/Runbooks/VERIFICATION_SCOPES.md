@@ -87,11 +87,8 @@ cannot shrink it. Missing scope with no inferred components falls back to Full's
 project-wide check union. The scope document participates in the task fingerprint;
 editing a prepared scope requires the normal revision and renewed-evidence process.
 
-A lean project uses the same components for its pre-commit check: `check` defaults
-to Task, which selects the affected components, their consumers, `task_checks`, the
-dependency and contract checks and the protected requirements for the changed
-paths, and widens to the Full selection for broad, unowned or ambiguous paths and
-T4. Lean has no Phase run, so a lean project may leave each component's `Phase`
+A lean project's pre-commit `check` uses the same components and selection;
+`Docs/Runbooks/LEAN.md` describes it. Lean has no Phase run, so a lean project may leave each component's `Phase`
 checks and `phase_checks` empty. A tracked project must declare both: Phase
 completion needs integration evidence.
 

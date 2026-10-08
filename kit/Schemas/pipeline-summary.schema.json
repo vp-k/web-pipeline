@@ -5,6 +5,10 @@
   "additionalProperties": false,
   "properties": {
     "warnings": {"type": "array", "items": {"type": "string"}},
+    "outside_scope": {"type": "array", "items": {"type": "string", "minLength": 1}},
+    "repeat": {"oneOf": [{"type": "null"}, {"type": "object", "additionalProperties": false, "required": ["run_id", "status"],
+      "properties": {"run_id": {"type": "string", "minLength": 1},
+                     "status": {"enum": ["PASS", "FAIL", "NOT_RUN", "BLOCKED", "NOT_APPLICABLE", "INCONCLUSIVE"]}}}]},
     "schema_version": {
       "const": "2.0"
     },

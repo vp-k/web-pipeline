@@ -8,10 +8,10 @@ Start every session with `python -m web_pipeline status`. It is read-only and re
 
 `workflow` in `pipeline.config.yaml` selects how ordinary changes are tracked. A missing value means `tracked`.
 
-- `lean`: follow [LEAN.md](Docs/Runbooks/LEAN.md). Build one feature with its tests, run `python -m web_pipeline check` before each commit, get one fresh-context review and put the check table in the commit message. For a whole project, keep the features in build order with `feature add`, `feature next` and `feature done`. Do not create `Docs/Work` tasks for ordinary work. Lean starts with the checks that are enabled and reports the rest as `missing_checks`.
+- `lean`: [LEAN.md](Docs/Runbooks/LEAN.md) is the only source of the lean rules. Read it before lean work. Do not create `Docs/Work` tasks for ordinary work.
 - `tracked`: every change is a task under `Docs/Work` and follows the Flow below.
 - In both modes, payment, deployment, release, production operations and destructive migrations use a tracked task.
-- Rules 4 to 9 below apply in both modes. Rules 1 to 3, rule 10 and the Flow apply to tracked tasks.
+- Rules 4 to 9 below apply in both modes. Rules 1 to 3, rule 10, the Flow and the Work rhythm apply to tracked tasks.
 
 ## Non-negotiable rules
 
@@ -49,11 +49,12 @@ Read [CONTINUATION.md](Docs/Runbooks/CONTINUATION.md) before treating a diagnost
 
 ## Work rhythm
 
-Implement one feature, check it with the relevant checks, then move to the next.
+Implement one feature, check it with the relevant checks, then move to the next. A lean project follows LEAN.md; the rest of this section is the tracked rhythm.
 
 - While implementing, run Fast for the changed components and fix what fails.
 - When the feature works, run its completion profile once, review it and close it. Project-wide verification belongs to the integrated change (Phase/Full).
-- Do not rerun a verification that failed or was interrupted for the same cause until that cause is fixed. If it cannot be fixed, record the blocker in one line and continue unblocked feature work.
+- `run` returns `repeat` when the task's previous run of the same profile used the same checks, task revision and approved exceptions on the same tree and verification policy, and the iteration limits stop a failure that keeps coming back. A failing `repeat` proved nothing new: change the cause before running again, or name the environment change that justifies the rerun. If it cannot be fixed, record the blocker in one line and continue unblocked feature work.
+- The failed-attempt limit counts failures since the last covering PASS: a PASS of a profile at least as wide as the widest one that failed, in the order Fast, Task, Phase, Full. A test written first fails once and then passes, so test-first work does not use it up. A Fast pass after a failed Full does not clear that failure or end its same-failure sequence.
 - Do not write procedural notes the engine does not require (resume notes, execution notes, cleanup logs). STATE and evidence carry the state.
 - Report delivered features and actual check results, not how many procedures ran.
 

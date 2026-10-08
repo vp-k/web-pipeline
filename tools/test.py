@@ -6,6 +6,8 @@ cuts a ~30 minute serial run to a few minutes. No third-party runner is needed.
     python tools/test.py                 # everything
     python tools/test.py test_cli lock   # files whose name contains a term
     python tools/test.py -j 1            # serial
+
+Workers default to half the CPUs, at most four, so a run leaves room for other work.
 """
 from __future__ import annotations
 
@@ -36,7 +38,8 @@ def run_file(path: Path) -> tuple[str, int, float, str]:
 def main() -> int:
     parser = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
     parser.add_argument('terms', nargs='*', help='only files whose name contains one of these terms')
-    parser.add_argument('-j', '--jobs', type=int, default=min(8, os.cpu_count() or 2))
+    parser.add_argument('-j', '--jobs', type=int, default=max(1, min(4, (os.cpu_count() or 2) // 2)),
+                        help='parallel test files (default: half the CPUs, at most 4)')
     args = parser.parse_args()
     files = sorted(p for p in TESTS.glob('test_*.py') if not args.terms or any(t in p.name for t in args.terms))
     if not files:

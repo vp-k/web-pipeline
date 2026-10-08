@@ -32,7 +32,7 @@ Claude Code 플러그인 **`web-pipeline`**: 웹 프로젝트에서 기능을 �
 | `/web-pipeline:loop [plan]` | 큐로 여러 작업을 정지 조건까지 계속 |
 | `/web-pipeline:upgrade [path] [--apply]` | 도입된 프로젝트의 엔진 업그레이드(백업·복원 포함) |
 | 스킬 `web-pipeline` | 위 작업의 규칙·레퍼런스(`skills/web-pipeline/`). 요청에 따라 자동 로드 |
-| 에이전트 `pipeline-reviewer` | 사용 가능한 환경에서 T1/T2 로컬 리뷰에 사용. 기능 부재 시 별도의 실제 자체 리뷰를 기록 |
+| 에이전트 `pipeline-reviewer` | tracked T1/T2 로컬 리뷰와 lean 기능별 커밋 전 리뷰에 사용. 기능 부재 시 별도의 실제 자체 리뷰를 기록 |
 
 ## 저장소 구조
 
@@ -50,7 +50,7 @@ docs/history/                이전(Codex판) 결정 기록. 배포되지 않음
 ## 개발
 
 ```console
-python tools/test.py                 # 전체 (파일 단위 병렬, 약 6분)
+python tools/test.py                 # 전체 (파일 단위 병렬, 워커는 CPU 절반·최대 4개, 약 20분)
 python tools/test.py friction cli    # 이름에 포함된 파일만
 python tools/release.py              # kit 수정 후 반드시. 매니페스트·plugin.json 갱신
 python tools/release.py --check      # CI/테스트가 쓰는 검사

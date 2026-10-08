@@ -13,7 +13,8 @@ import uuid
 from pathlib import Path
 from typing import Any
 
-from .common import PipelineError, atomic_json, load_config, missing_checks, output_exclusions, safe_path, utc_now
+from .common import (PipelineError, atomic_json, canonical_hash, code_snapshot, load_config, missing_checks,
+                     output_exclusions, safe_path, utc_now)
 
 WORKFLOWS = ('lean', 'tracked')
 CHECK_PROFILES = ('Fast', 'Task', 'Full')
@@ -77,7 +78,11 @@ def selected_commands(config: dict[str, Any], profile: str, domains: set[str]) -
 
 
 def config_weakening(before: dict[str, Any], after: dict[str, Any]) -> list[str]:
-    """Ways the new configuration runs or requires less than the old one."""
+    """Ways the new configuration runs or requires less than the old one.
+
+    A shorter timeout is not weakening: a timed-out check fails, it never passes.
+    """
+    from .guards import report_loosening
     found: list[str] = []
     old_verification, new_verification = before.get('verification', {}), after['verification']
     new_commands = {item['id']: item for item in new_verification['commands']}
@@ -90,6 +95,8 @@ def config_weakening(before: dict[str, Any], after: dict[str, Any]) -> list[str]
             found.append(f"{old['id']}: check disabled")
         elif old.get('enabled') and dropped:
             found.append(f"{old['id']}: profiles {', '.join(dropped)} removed")
+        elif old.get('enabled'):
+            found.extend(report_loosening(old, new))
     for domain, profiles in old_verification.get('requirements', {}).items():
         for name, ids in profiles.items():
             for check_id in sorted(set(ids) - set(new_verification['requirements'].get(domain, {}).get(name, []))):
@@ -108,27 +115,107 @@ def config_weakening(before: dict[str, Any], after: dict[str, Any]) -> list[str]
     return found
 
 
-def _weakened(root: Path, config: dict[str, Any], base_ref: str) -> list[str]:
-    """Compare the working configuration with the one at base_ref. No base file means nothing to compare."""
+def _base_config(root: Path, base_ref: str) -> dict[str, Any] | None:
+    """The configuration at base_ref. No base file means nothing to compare."""
     from .policy import option_shaped
     if not base_ref or option_shaped(base_ref):
-        return []
-    shown = subprocess.run(['git', 'show', f'{base_ref}:./pipeline.config.yaml'], cwd=root,
-                           capture_output=True, check=False, timeout=60)
+        return None
+    try:
+        shown = subprocess.run(['git', 'show', f'{base_ref}:./pipeline.config.yaml'], cwd=root,
+                               capture_output=True, check=False, timeout=60)
+    except (OSError, subprocess.SubprocessError):
+        return None
     if shown.returncode:
-        return []
+        return None
     try:
         before = json.loads(shown.stdout.decode('utf-8-sig'))
     except ValueError:
-        return []
-    return config_weakening(before, config) if isinstance(before, dict) else []
+        return None
+    return before if isinstance(before, dict) else None
 
 
-def check(root: Path, profile: str | None = None, base_ref: str = 'HEAD') -> dict[str, Any]:
+def _merge_base(root: Path, base_ref: str) -> str | None:
+    """The commit where HEAD left base_ref. The changed paths are measured from it, so the old
+    test files and configuration are read there too, not at a base branch that has moved on."""
+    from .policy import option_shaped
+    if not base_ref or option_shaped(base_ref):
+        return None
+    try:
+        shown = subprocess.run(['git', 'merge-base', base_ref, 'HEAD'], cwd=root, capture_output=True, text=True,
+                               check=False, timeout=30)
+    except (OSError, subprocess.SubprocessError):
+        return None
+    return shown.stdout.strip() or None if shown.returncode == 0 else None
+
+
+def history(root: Path, config: dict[str, Any]) -> list[dict[str, Any]]:
+    """Readable lean check summaries, newest first. An unreadable summary proves nothing and is skipped."""
+    report = safe_path(root, config['project']['report_root'])
+    runs = []
+    for path in report.glob('check-*/summary.json') if report.is_dir() else []:
+        try:
+            run = json.loads(path.read_text(encoding='utf-8-sig'))
+        except (OSError, ValueError):
+            continue
+        if isinstance(run, dict) and isinstance(run.get('started_at'), str) and run.get('run_id') == path.parent.name:
+            runs.append(run)
+    return sorted(runs, key=lambda run: (run['started_at'], run['run_id']), reverse=True)
+
+
+def current(root: Path, config: dict[str, Any], run: dict[str, Any]) -> bool:
+    """Whether a check still describes the working tree and the whole configuration it ran under.
+    A summary without a config digest predates this rule and is not current."""
+    recorded = run.get('snapshot') or {}
+    return (recorded.get('tree_digest') == code_snapshot(root, config)['tree_digest']
+            and run.get('config_digest') == canonical_hash(config))
+
+
+def last_check(root: Path, config: dict[str, Any]) -> dict[str, Any] | None:
+    """The newest check for status: a session that lost its context reads this, not its memory."""
+    runs = history(root, config)
+    if not runs:
+        return None
+    run = runs[0]
+    failing = [item['id'] for item in run.get('checks', []) if item.get('status') != 'PASS']
+    return {'run_id': run['run_id'], 'profile': run.get('profile'), 'status': run.get('status'),
+            'base_ref': run.get('base_ref'), 'failing': failing, 'current': current(root, config, run), 'repeat': run.get('repeat'),
+            'same_failure': run.get('same_failure', 0), 'test_changes': run.get('test_changes', [])}
+
+
+def _base(root: Path, config: dict[str, Any], base_ref: str | None) -> str:
+    """An explicit base wins; otherwise the commit the active feature started from, then HEAD."""
+    if base_ref:
+        return base_ref
+    if workflow(config) == 'lean':
+        from .features import active_base
+        commit = active_base(root)
+        if commit:
+            return commit
+    return 'HEAD'
+
+
+def _verify_report(root: Path, run_dir: Path, command: dict[str, Any], result: dict[str, Any]) -> None:
+    """A zero exit is not test evidence when the check declares a structured report."""
+    from .test_results import validate_report
+    if not command.get('test_report') or result['status'] != 'PASS':
+        return
+    try:
+        validate_report(root, run_dir, command)
+    except (PipelineError, OSError, ValueError) as exc:
+        reason = f'Test report invalid: {exc}'
+        result.update(status='FAIL', reason=reason)
+        with safe_path(run_dir, result['log']).open('ab') as log:
+            log.write(f'pipeline: {reason}\n'.encode('utf-8', 'replace'))
+
+
+def check(root: Path, profile: str | None = None, base_ref: str | None = None) -> dict[str, Any]:
+    from .evidence import failure_fingerprint, policy_snapshot
+    from .guards import command_changes, rerun_facts, script_changes, test_changes
     from .policy import _changed_paths, path_risk
     from .runner import _execute
     from .scopes import enabled
     config = load_config(root)
+    base_ref = _base(root, config, base_ref)
     profile = profile or default_profile(config)
     if profile not in CHECK_PROFILES:
         raise PipelineError(f'check profile must be one of {", ".join(CHECK_PROFILES)}')
@@ -151,14 +238,30 @@ def check(root: Path, profile: str | None = None, base_ref: str = 'HEAD') -> dic
         selected = 'Full' if scope else profile
         commands = selected_commands(config, selected, domains)
         missing = missing_checks(config, sorted(domains), (selected,), risk['protected_changes'])
-    weakened = _weakened(root, config, base_ref)
+    base_commit = _merge_base(root, base_ref)
+    compare = base_commit or base_ref
+    before = _base_config(root, compare)
+    weakened: list[str] = []
+    notices = list(risk['notices'])
+    warnings = diff_errors + risk['errors']
+    if before:
+        try:
+            weakened, changed = config_weakening(before, config), command_changes(before, config)
+        except (KeyError, TypeError, AttributeError, ValueError):
+            weakened = []
+            warnings.append(f'pipeline.config.yaml at {compare} could not be compared: '
+                            'review the configuration changes by hand')
+        else:
+            notices += changed
+    notices += script_changes(root, config['verification']['commands'], compare)
     tracked = risk['risk_tier'] == TRACKED_TIER
     result: dict[str, Any] = {
         'workflow': workflow(config), 'profile': profile, 'scope': scope, 'base_ref': base_ref,
-        'changed_paths': risk['changed_paths'], 'risk_tier': risk['risk_tier'],
+        'base_commit': base_commit, 'changed_paths': risk['changed_paths'], 'risk_tier': risk['risk_tier'],
         'change_domains': risk['change_domains'], 'decisions': risk['protected_changes'],
-        'tracked_required': tracked, 'notices': risk['notices'], 'weakened_checks': weakened,
-        'missing_checks': missing, 'warnings': diff_errors + risk['errors'], 'checks': []}
+        'tracked_required': tracked, 'notices': notices, 'weakened_checks': weakened,
+        'test_changes': test_changes(root, compare, paths),
+        'missing_checks': missing, 'warnings': warnings, 'checks': []}
     if not commands:
         return {**result, 'status': 'FAIL', 'commit_table': _table([], missing),
                 'next': f'No enabled check runs in {profile}: enable at least one real check in pipeline.config.yaml.'}
@@ -167,15 +270,35 @@ def check(root: Path, profile: str | None = None, base_ref: str = 'HEAD') -> dic
     run_dir = safe_path(root, f'{report}/{run_id}')
     run_dir.mkdir(parents=True, exist_ok=False)
     started = utc_now()
-    results = [_execute(item, root, run_dir, profile=profile) for item in commands]
+    snapshot, policy, digest = code_snapshot(root, config), policy_snapshot(config), canonical_hash(config)
+    earlier = history(root, config)
+    results = []
+    for item in commands:
+        outcome = _execute(item, root, run_dir, profile=profile)
+        _verify_report(root, run_dir, item, outcome)
+        results.append(outcome)
     failed = [item['id'] for item in results if item['status'] != 'PASS']
     status = 'FAIL' if failed else 'PASS'
+    failure = failure_fingerprint(results, run_dir=run_dir, root=root)
+    facts = rerun_facts(earlier, profile, snapshot, digest, base_commit, failure)
     table = _table(results, missing)
     open_items = risk['protected_changes'] + (['the weakened checks'] if weakened else [])
+    repeat = facts['repeat']
+    limit = int(config.get('iteration_limits', {}).get('same_failure', 3))
     if failed:
         hint = 'Fix ' + ', '.join(failed) + ' and run check again. Do not commit a failing check.'
+        if repeat and repeat['status'] != 'PASS':
+            hint = ('Fix ' + ', '.join(failed) + f". {repeat['run_id']} already failed on this exact tree, "
+                    'configuration and base, so this run repeated it: read the log and change the code before the next check. '
+                    'Rerun unchanged code only after naming the environment change. Do not commit a failing check.')
+        if facts['same_failure'] >= limit:
+            hint += (f" The same failure came back {facts['same_failure']} times with no wider pass between: stop trial edits, "
+                     'find the root cause from the log, or ask the user.')
     elif tracked:
         hint = 'Checks pass, but the change touches T4 paths: move it to a tracked task (new ...) before release.'
+    elif profile == 'Fast':
+        # Only a Task or Full check opens the commit gate; a Fast pass is iteration.
+        hint = 'Fast checks pass: run check before the commit. A Fast pass cannot finish a feature.'
     elif open_items:
         hint = ('Checks pass. Confirm the user decided ' + ', '.join(open_items)
                 + '; ask once if not, then commit with the table and the decision.')
@@ -184,7 +307,13 @@ def check(root: Path, profile: str | None = None, base_ref: str = 'HEAD') -> dic
     if not failed and scope and scope['level'] != 'project':
         hint += (' This check covered ' + ', '.join(scope['components'])
                  + ' and their consumers; run check --profile Full before a release or merge.')
+    if not failed and repeat and repeat['status'] == 'PASS':
+        hint += f" Note: {repeat['run_id']} had already passed on this exact tree, configuration and base."
+    if result['test_changes']:
+        hint += ' The review must confirm each test change: ' + '; '.join(result['test_changes']) + '.'
     summary = {**result, 'status': status, 'run_id': run_id, 'started_at': started, 'finished_at': utc_now(),
+               'snapshot': snapshot, 'policy_snapshot': policy, 'config_digest': digest,
+               'failure_fingerprint': failure, **facts,
                'checks': results, 'commit_table': table, 'next': hint}
     atomic_json(run_dir / 'summary.json', summary)
     return {**summary, 'evidence': run_dir.relative_to(root).as_posix()}

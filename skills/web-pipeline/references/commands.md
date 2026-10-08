@@ -3,55 +3,22 @@
 모든 프로젝트 명령은 프로젝트 루트에서 `python -m web_pipeline <command>` 로 실행한다 (`--root` 기본값 `.`).
 출력은 stdout JSON. 실패는 stderr `{"status":"FAIL","error":"..."}` + exit 1. 인자 오류(argparse)는 exit 2.
 
-## 0. lean 모드: check
+## 0. lean 모드: check와 기능 목록
 
-`workflow: lean` 프로젝트의 기본 명령이다. task 없이 작업 트리를 검사한다.
+`workflow: lean` 프로젝트의 명령이다. 규칙과 출력 키의 뜻, `feature done` 조건은 프로젝트의 `Docs/Runbooks/LEAN.md` 한 곳에만 있다. 여기에는 명령 형태만 적는다.
 
 ```console
 python -m web_pipeline check                  # 커밋 전. 컴포넌트가 있으면 Task, 없으면 Full
 python -m web_pipeline check --profile Fast   # 구현 중 반복
 python -m web_pipeline check --profile Full   # 릴리스나 병합 전
-python -m web_pipeline check --base-ref main  # 변경 경로 비교 기준. 기본 HEAD
-```
-
-| 출력 키 | 뜻 |
-|---|---|
-| `status` | 모든 check PASS면 `PASS`. 아니면 `FAIL`이고 exit 1 |
-| `profile`, `scope` | 실행한 프로필과 Task 범위. `scope`는 `level`, `components`, `reasons`를 담는다 |
-| `checks` | 실행한 check와 결과 |
-| `commit_table` | 커밋 메시지에 넣는 check별 결과 표. 켜지지 않은 필수 check는 `Not enabled` 줄로 붙는다 |
-| `missing_checks` | 변경 도메인과 보호 변경이 요구하지만 켜지지 않은 check |
-| `decisions` | 변경 경로가 가리키는 보호 변경. 사용자 결정이 필요하다 |
-| `weakened_checks` | `--base-ref` 커밋의 설정보다 줄어든 check, 요구, 보호 rule. 사용자 결정이 필요하다 |
-| `notices` | 의존성, `.env`, seed, 설정 변경처럼 리뷰가 확인할 항목 |
-| `tracked_required` | 변경 경로가 T4. 추적 task로 옮긴다 |
-| `evidence` | 로그와 `summary.json`이 있는 보고서 폴더 |
-
-- `Full`은 `Full` 또는 `Policy` 프로필의 켜진 check를 모두 돌린다.
-- `Task`는 `verification.scopes`가 있어야 한다. 바뀐 컴포넌트와 그 소비자의 Task check, 의존성·계약 check, 보호 변경의 필수 check를 돌린다.
-- broad path, 주인 없는 경로, 모호한 경로, T4는 Task를 프로젝트 전체로 넓힌다. 이때 실행 목록은 Full과 같다.
-- lean 프로젝트는 컴포넌트의 Phase check를 비워도 된다. 추적 프로젝트는 Phase check가 필수다.
-- `Fast`는 정책 check와 변경 도메인의 Fast 요구 check만 돌린다. 요구 목록에 없는 프로젝트 check는 자기 `profiles`를 따른다.
-- 켜진 실제 check가 하나도 없으면 `FAIL`이다. 나머지는 `missing_checks`로 보고하고 진행한다.
-
-check는 준비된 프로젝트에서만 돈다. `Docs/Work`에 아무것도 만들지 않고 승인을 기록하지 않는다.
-
-### 기능 목록 (lean 전용)
-
-프로젝트 전체를 lean으로 만들 때 기능 순서를 `Docs/Work/FEATURES.json`에 둔다. 추적 프로젝트에서는 거부된다.
-
-```console
+python -m web_pipeline check --base-ref main  # 비교 기준 지정. 기본은 진행 중 기능의 시작 커밋, 없으면 HEAD
 python -m web_pipeline feature add "회원 가입"   # 만들 순서대로 추가. F-001, F-002 ...
 python -m web_pipeline feature list             # 목록과 다음 할 일
 python -m web_pipeline feature next             # 첫 TODO 시작. 진행 중이면 그 기능을 다시 알려 줌
-python -m web_pipeline feature done             # 진행 중 기능 완료
+python -m web_pipeline feature done             # 진행 중 기능 완료. LEAN.md의 조건을 만족해야 한다
 ```
 
-- `feature done`은 기능 시작 뒤 가장 최근의 Task 또는 Full check가 PASS여야 한다. Fast는 근거가 아니다.
-- 그 check가 `tracked_required`면 거부된다. 그 작업은 추적 task로 옮긴다.
-- 완료 기록에는 check 실행 ID와 프로필이 남는다. 목록 파일은 그 기능의 커밋에 함께 넣는다.
-- 목록은 변경 경로와 트리 다이제스트에서 빠진다. 목록을 고쳐도 check 범위나 증거가 바뀌지 않는다.
-- `status`는 lean 프로젝트에서 `features`로 진행 중 기능과 다음 기능을 보여 준다.
+check는 준비된 프로젝트에서만 돈다. `Docs/Work`에 task를 만들지 않고 승인을 기록하지 않는다. `feature`는 추적 프로젝트에서 거부된다.
 
 ## 1. Task 상태 다이어그램
 
@@ -106,7 +73,7 @@ DONE 은 이력이다. DONE 전이는 완료 봉인을 기록한다. 봉인은 �
 
 | 명령 | 목적 | 쓰기 | 주요 플래그 | exit |
 |---|---|---|---|---|
-| `status` | 엔진 버전, mode/ready, approval policy, 전체 task, lock, queue, lean 기능 목록, `next` 힌트 | 아니오 | `--task` | 0 |
+| `status` | 엔진 버전, mode/ready, approval policy, 전체 task, lock, queue, lean 기능 목록, `last_check`, `commit_gate`, `next` 힌트 | 아니오 | `--task` | 0 |
 | `check` | lean 작업 트리 검사 (§0) | 보고서만 | `--profile Fast\|Task\|Full`, `--base-ref` | PASS=0, FAIL=1 |
 | `feature` | lean 기능 목록 (§0) | `add`/`next`/`done` | `add <title>`, `list`, `next`, `done` | 0 |
 | `locks` | `.pipeline-locks/*.lock` 의 pid/started_utc/alive | `--clear-stale` 만 | `--clear-stale` | 0 |
@@ -135,7 +102,7 @@ DONE 은 이력이다. DONE 전이는 완료 봉인을 기록한다. 봉인은 �
 | `loop recover` | 중단된 lease 해제(재실행 안 함) | 예 | `--token --reason` | 0 |
 | `loop retry` | 외부 조건이 풀린 뒤 waiting 해제 | 예 | `--task --reason` | 0 |
 | `loop reconcile` | `revise` 된 task 를 큐에 다시 수용 | 예 | `--task --reason` | 0 |
-| `loop renew` | 사용자가 승인한 추가 예산 | 예 | `--task` \| `--queue`, `--reason`, `--extra-minutes`, `--extra-attempts` | 0 |
+| `loop renew` | 사용자가 승인한 추가 예산, 또는 task가 닿은 실패 정지 해제 | 예 | `--task` \| `--queue`, `--reason`, `--extra-minutes`, `--extra-attempts` | 0 |
 
 check 명령의 `argv[0]` 는 PATH/PATHEXT 로 해석되므로 Windows 에서도 `npm`, `npx`, `pnpm` 을 `.cmd` 없이 쓴다.
 
@@ -152,7 +119,7 @@ check 명령의 `argv[0]` 는 PATH/PATHEXT 로 해석되므로 Windows 에서도
 | `Release` | DONE + T4 | 현재 completion 증거 + release 승인 필요 | `release_run`, `release_status=READY` |
 
 - completion 프로필: `verification.scopes` 없음 → `Full`; 있음 → `Phase`(SCOPE level phase) 또는 `Task`.
-- Fast/Task/Phase/Full 은 실행 전 policy gate 와 budget 을 검사하고 attempt 를 1 차감한다(PASS 또는 순수 시간 예산 중단이면 failed_attempts 예약분 환불; 중단 결과는 BLOCKED 유지). completion 프로필 시작 시 기존 `full_run` 은 지워진다.
+- Fast/Task/Phase/Full 은 실행 전 policy gate 와 budget 을 검사하고 attempt 를 1 차감한다. 실패한 가장 넓은 profile 이상의 PASS 면 failed_attempts 를 0 으로 되돌린다. 더 좁은 PASS 는 자기 예약분만 환불한다. 순수 시간 예산 중단이면 예약분만 환불하고 결과는 BLOCKED 로 남는다. 같은 profile 의 직전 run 과 check, task 리비전, 승인된 예외, 트리, 검증 설정이 모두 같으면 결과와 요약의 `repeat` 에 그 run 이 남는다. 같은 실패 반복 횟수도 그 실패들 이상 넓은 profile 의 PASS 에서만 0 이 된다. completion 프로필 시작 시 기존 `full_run` 은 지워진다.
 - T4, broad path(`pipeline.config.yaml`, `package.json`, lock 파일 등), 소유 component 가 모호한 경로는 scope 를 프로젝트 전체로 확장한다. Fast 는 T4 여도 확장하지 않는다.
 - T3·보호 변경은 확장하지 않는다. 대신 Baseline/Task/Phase 에 그 task 도메인과 보호 규칙의 필수 check 를 더한다. 프로젝트 전체 검증은 통합 시점의 Phase·Full·Release 에서 한다.
 

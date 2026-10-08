@@ -11,13 +11,14 @@ from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any
 
-from .common import (PipelineError, atomic_json, code_snapshot, hash_file, load_config,
-                     lock, read_state, safe_path, source_fingerprint, utc_now,
+from .common import (PipelineError, atomic_json, canonical_hash, code_snapshot, hash_file,
+                     load_config, lock, read_state, safe_path, source_fingerprint, utc_now,
                      validate_schema, write_state)
 from .evidence import (collect_artifacts, failure_fingerprint, policy_snapshot,
                        acceptance_checks, required_checks, validate_artifact_hashes,
                        validate_screenshots)
-from .budget import enforce_task, finish_run, seconds_between, task_remaining, time_mode, time_warnings
+from .budget import (covers, enforce_task, finish_run, seconds_between, task_remaining, time_mode,
+                     time_warnings, wider)
 from . import boundaries
 from .test_results import validate_report
 from . import scopes
@@ -200,16 +201,29 @@ def run_profile(root: Path | str, task_id: str, profile: str,
         run_id, run_dir = _unique_run_dir(root, config, run_id)
         if plan:
             atomic_json(run_dir / scopes.ARTIFACT, plan)
+            # Paths owned only by components the task did not declare: likely work outside the request.
+            outside = scopes.outside_scope(config, scopes.task_scope(root, config, state), plan['changed_paths'])
         started = utc_now()
+        # The same profile, checks, task revision and approved exceptions on the same tree and policy
+        # repeat the profile's previous run. Exception records live outside the code tree.
+        exceptions = {rel: hash_file(path) if (path := safe_path(root, rel)).is_file() else None
+                      for rel in state.get('exceptions', [])}
+        run_input = canonical_hash({'profile': profile, 'tree': before_snapshot['tree_digest'],
+                                    'policy': policy_snapshot(config), 'checks': sorted(wanted),
+                                    'task': fingerprint, 'exceptions': exceptions})
+        last_run = (state.get('iteration', {}).get('last_runs') or {}).get(profile) or {}
+        repeat = ({'run_id': last_run['run_id'], 'status': last_run['status']}
+                  if last_run.get('input') == run_input else None)
         if profile in {"Fast", "Task", "Phase", "Full"}:
             iteration = state.setdefault("iteration", {})
             attempts_key = "attempts" if "attempts" in iteration else "total_attempts"
             iteration[attempts_key] = int(iteration.get(attempts_key, 0)) + 1
             iteration["started_utc"] = iteration.get("started_utc") or started
             # Reserve an unresolved (non-PASS) attempt durably before execution.
-            # PASS or a conclusive budget-only pause refunds this reservation.
+            # finish_run settles it: a covering PASS clears the count, a narrower PASS or a
+            # conclusive budget-only pause refunds this reservation.
             iteration['failed_attempts'] += 1
-            iteration['pending_run'] = {'run_id': run_id, 'started_utc': started}
+            iteration['pending_run'] = {'run_id': run_id, 'started_utc': started, 'profile': profile}
             if profile in scopes.COMPLETION:
                 state["full_run"] = None
             state["updated_utc"] = utc_now()
@@ -324,28 +338,41 @@ def run_profile(root: Path | str, task_id: str, profile: str,
             summary['warnings'] = time_warnings(
                 config['iteration_limits'], state['iteration'], f'Task {task_id}',
                 seconds_between(started, summary['completed_utc']))
+        if plan:
+            summary['outside_scope'] = outside
+        summary['repeat'] = repeat
         validate_schema(root, "pipeline-summary", summary)
         atomic_json(run_dir / "summary.json", summary)
 
         iteration = state.setdefault("iteration", {})
         if profile in {"Fast", "Task", "Phase", "Full"}:
             finish_run(iteration, summary)
-            attempts_key = "attempts" if "attempts" in iteration else "total_attempts"
-            same_key = "same_failure" 
-            prior = iteration.get("last_failure") or iteration.get("last_failure_fingerprint")
+            failure_key = "last_failure" if "last_failure" in iteration else "last_failure_fingerprint"
+            prior = iteration.get(failure_key)
             # A time-budget pause is not a new product failure and cannot clear
             # the existing same-failure guard merely by replacing its fingerprint.
             substantive = [c for c in summary['checks'] if c.get('blocker_kind') != 'budget']
             current_failure = failure_fingerprint(substantive, run_dir=run_dir, root=root)
-            if current_failure or summary['status'] == 'PASS':
-                iteration[same_key] = int(iteration.get(same_key, 0)) + 1 if current_failure and prior == current_failure else (1 if current_failure else 0)
-                if "last_failure" in iteration:
-                    iteration["last_failure"] = current_failure
-                else:
-                    iteration["last_failure_fingerprint"] = current_failure
+            if current_failure:
+                repeated = prior == current_failure
+                iteration['same_failure'] = int(iteration.get('same_failure', 0)) + 1 if repeated else 1
+                iteration['same_failure_profile'] = wider(
+                    iteration.get('same_failure_profile') if repeated else None, profile)
+                iteration[failure_key] = current_failure
+            elif summary['status'] == 'PASS' and covers(profile, iteration.get('same_failure_profile')):
+                # Only a pass that ran what failed ends the sequence; a Fast pass after a Full failure did not.
+                iteration['same_failure'] = 0
+                iteration['same_failure_profile'] = None
+                iteration[failure_key] = None
             iteration["started_utc"] = iteration.get("started_utc") or started
             if any(c["status"] == "BLOCKED" and c.get('blocker_kind') != 'budget' for c in summary["checks"]):
                 iteration["external_retries"] = int(iteration.get("external_retries", 0)) + 1
+            elif any(c["status"] in {"PASS", "FAIL"} for c in summary["checks"]):
+                # The commands started, so the environment that blocked them is back: only blocks in
+                # a row count. A run stopped by the time budget proves nothing either way.
+                iteration["external_retries"] = 0
+            iteration.setdefault('last_runs', {})[profile] = {'run_id': run_id, 'input': run_input,
+                                                             'status': summary['status']}
         baseline_captured = False
         if profile == "Baseline":
             try:

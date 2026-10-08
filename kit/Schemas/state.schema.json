@@ -243,6 +243,7 @@
       "properties": {
         "budget_version": {"const": 1},
         "failed_attempts": {"type": "integer", "minimum": 0},
+        "failed_profile": {"anyOf": [{"type": "null"}, {"enum": ["Fast", "Task", "Phase", "Full"]}]},
         "active_seconds": {"type": "number", "minimum": 0},
         "renewals": {"type": "array", "items": {"type": "object"}},
         "pending_run": {"anyOf": [{"type": "null"}, {
@@ -250,7 +251,8 @@
           "required": ["run_id", "started_utc"],
           "properties": {
             "run_id": {"type": "string", "pattern": "^[A-Za-z0-9][A-Za-z0-9._-]{1,63}$"},
-            "started_utc": {"type": "string", "format": "date-time"}
+            "started_utc": {"type": "string", "format": "date-time"},
+            "profile": {"enum": ["Fast", "Task", "Phase", "Full"]}
           }
         }]},
         "attempts": {
@@ -261,9 +263,24 @@
           "type": "integer",
           "minimum": 0
         },
+        "same_failure_profile": {"anyOf": [{"type": "null"}, {"enum": ["Fast", "Task", "Phase", "Full"]}]},
         "external_retries": {
           "type": "integer",
           "minimum": 0
+        },
+        "last_runs": {
+          "type": "object",
+          "propertyNames": {"enum": ["Fast", "Task", "Phase", "Full"]},
+          "additionalProperties": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": ["run_id", "input", "status"],
+            "properties": {
+              "run_id": {"type": "string", "minLength": 1},
+              "input": {"type": "string", "pattern": "^[a-f0-9]{64}$"},
+              "status": {"type": "string", "minLength": 1}
+            }
+          }
         },
         "started_utc": {
           "anyOf": [

@@ -94,6 +94,22 @@ class ScopeTests(unittest.TestCase):
         self.assertEqual('FAIL', full['status'])
         self.assertIn('unit-b', {c['id'] for c in full['checks'] if c['status'] == 'FAIL'})
 
+    def test_paths_owned_by_components_outside_the_task_scope_are_listed(self):
+        scope = scopes.task_scope(self.root, self.config, read_state(self.root, self.task))
+        self.assertEqual([], scopes.outside_scope(self.config, scope, ['a.py']))
+        self.assertEqual(['b.py'], scopes.outside_scope(self.config, scope, ['a.py', 'b.py', 'unknown.py']))
+        self.start()
+        atomic_text(self.root / 'b.py', 'value = 2  # edited outside the task\n')
+        fast = run_profile(self.root, self.task, 'Fast')
+        self.assertEqual(['b.py'], fast['outside_scope'])  # the reviewer reads it from the stored summary
+        stored = self.root / self.config['project']['report_root'] / fast['run_id'] / 'summary.json'
+        self.assertEqual(['b.py'], json.loads(stored.read_text(encoding='utf-8'))['outside_scope'])
+
+    def test_consumers_of_a_declared_component_are_inside_the_task_scope(self):
+        # Changing a shared component often means updating the components that use it.
+        scope = {'level': 'task', 'components': ['shared']}
+        self.assertEqual([], scopes.outside_scope(self.config, scope, ['shared.py', 'a.py', 'b.py']))
+
     def test_transitive_consumers_and_unknown_paths_expand_scope(self):
         state = read_state(self.root, self.task)
         shared = scopes.selection(self.root, self.config, state, 'Task', changed_paths=['shared.py'])

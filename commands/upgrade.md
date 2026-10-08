@@ -19,7 +19,7 @@ python "${CLAUDE_PLUGIN_ROOT}/scripts/pipeline.py" upgrade --target "<target>"
    - `Legacy install requires --baseline` — 영수증(`.pipeline-install.json`)이 없는 설치다. 원래 설치한 엔진 디렉터리를 **실제로 알고 있을 때만** `--baseline`으로 넘긴다. 기준선을 지어내지 않는다.
    - `Stop active pipeline operations before maintenance: <names>` — 살아 있는 프로세스가 락을 잡고 있다(죽은 프로세스의 락은 자동 정리된다). `python -m web_pipeline locks`로 PID를 확인하고 그 작업이 끝날 때까지 기다린다. 프로세스를 이미지 이름으로 죽이지 않는다.
    - `Project files collide with new engine files; rename them first` — 프로젝트가 `Scripts/`에 추가한 파일이 새 엔진 파일과 이름이 같다. 이름 변경은 사용자가 결정한다.
-4. 적용 후: 거래 ID를 보고하고, `Docs/`·`Templates/`·`pipeline.config.yaml`·`PIPELINE.md`는 업그레이드가 건드리지 않으므로 플러그인 `kit/`의 최신본과 차이를 비교해 알려준다. 그 다음 `python -m web_pipeline validate`. 업그레이드는 기존 증거나 준비 상태를 갱신해 주지 않는다.
+4. 적용 후: 거래 ID를 보고하고, `Docs/`·`Templates/`·`pipeline.config.yaml`·`PIPELINE.md`는 업그레이드가 건드리지 않으므로 플러그인 `kit/`의 최신본과 차이를 비교해 알려준다. 버전별로 복사할 문서와 순서는 플러그인 `kit/Docs/Runbooks/UPDATES.md`의 해당 절에 있다. 프로젝트의 사본은 이전 판이라 새 절이 없다. 그 다음 `python -m web_pipeline validate`. 업그레이드는 기존 증거나 준비 상태를 갱신해 주지 않는다.
 5. 2.15 이전 설정에서 넘어온 프로젝트: 업그레이드는 설정을 바꾸지 않는다. 사용자에게 아래 이전을 제안하고, 승인한 항목만 적용한다.
    - task 없이 기능을 만들려면 `"workflow": "lean"`을 넣고 플러그인 `kit/Docs/Runbooks/LEAN.md`를 `Docs/Runbooks/`에 복사한다.
    - 기본 `risk.path_rules`를 플러그인 `kit/pipeline.config.yaml`의 것과 비교한다. 새 rule 추가는 보호를 늘리기만 한다.

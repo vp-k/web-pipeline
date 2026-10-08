@@ -111,6 +111,50 @@ its old path rules. With the user's agreement:
   new `Docs/Runbooks/LEAN.md`. `verification.scopes` in a lean project may leave
   `Phase` checks empty.
 
+## Upgrading to 2.17
+
+Upgrade the engine first, then copy the documents below from the new kit, then run
+`validate`.
+
+- `Docs/Runbooks/LEAN.md` is now the only source of the lean rules and explains the
+  check output: `repeat`, `same_failure`, `test_changes`, `base_commit`, `warnings`,
+  `last_check` and `commit_gate`. Copy it from the new kit.
+- In `PIPELINE.md`, replace the `lean` bullet under Workflow mode and the Work rhythm
+  section with the kit's lines. The rhythm now states the tracked `repeat` input and
+  the failed-attempt rule.
+- Copy `Docs/Runbooks/CONTINUATION.md`, `Docs/Runbooks/CONTINUOUS.md`,
+  `Docs/Runbooks/VERIFICATION_SCOPES.md`, `Docs/Governance/VERIFICATION_POLICY.md`,
+  `Docs/Governance/00_OPERATING_MODEL.md` and `Templates/ITERATION_TEMPLATE.md` for
+  the same wording.
+- A lean check whose command declares a `test_report` now fails when the report is
+  missing, invalid or below its own limits. Fix a command that does not write its
+  declared report; removing the report is a weakened check and needs the user.
+- A lean check now records a digest of the whole `pipeline.config.yaml`. A check
+  recorded before the upgrade is never `current`, so `feature done` refuses it: run
+  check once more before finishing a feature.
+- The tracked failed-attempt count now counts failures since the last covering PASS.
+  A count recorded before the upgrade has no failing profile, so the task's next PASS
+  of any profile clears it. Older accounting that `loop renew --task` migrates takes
+  its failing profile from the retained runs instead, or `Full` when none survived.
+- Tracked runs now report `repeat` against the task's previous run of the same
+  profile, comparing its checks, task revision and approved exceptions as well. The
+  first run of each profile after the upgrade never reports one.
+- A tracked PASS ends a same-failure sequence only when its profile is at least as
+  wide as the runs that failed. A sequence recorded before the upgrade has no profile,
+  so the next PASS of any profile ends it.
+- An interrupted tracked run that left no summary keeps its failure at the profile it
+  was reserved for. A reservation made before the upgrade counts as `Full`.
+- `outside_scope` no longer lists paths of components that depend on a declared one.
+- A user-requested `loop renew --task` releases a same-failure or external-retry stop
+  the task reached and records the released counts in the grant. It needs no extra
+  budget for that. A count below its stop is kept, so a task stopped before the
+  upgrade resumes only after such a renewal.
+- External retries count blockers in a row: a run with no external blocker whose
+  commands started ends the count. A count recorded before the upgrade stays until
+  such a run.
+- A feature that is already `ACTIVE` has no `base_commit` and keeps comparing with
+  `HEAD`. A feature started with `feature next` after the upgrade records it.
+
 ## Planning records after an upgrade
 
 Tasks created or explicitly revised by the current engine carry

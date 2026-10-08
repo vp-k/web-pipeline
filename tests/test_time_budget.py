@@ -74,6 +74,22 @@ class TimeBudgetAccountingTests(unittest.TestCase):
                 self.assertEqual(2, iteration['active_seconds'])
                 self.assertIsNone(iteration['pending_run'])
 
+    def test_a_pass_clears_failures_only_when_it_covers_the_widest_failing_profile(self):
+        iteration = new_accounting(task=True)
+        def run(profile, status):
+            iteration['failed_attempts'] += 1
+            iteration['pending_run'] = {'run_id': 'run-001'}
+            finish_run(iteration, {'run_id': 'run-001', 'profile': profile, 'status': status, 'checks': [],
+                                   'started_utc': '2030-01-01T00:00:00Z', 'completed_utc': '2030-01-01T00:00:01Z'})
+            return iteration['failed_attempts'], iteration['failed_profile']
+        self.assertEqual((1, 'Task'), run('Task', 'FAIL'))
+        self.assertEqual((1, 'Task'), run('Fast', 'PASS'))  # a Fast pass does not prove the Task failure fixed
+        self.assertEqual((2, 'Full'), run('Full', 'FAIL'))
+        self.assertEqual((2, 'Full'), run('Phase', 'PASS'))
+        self.assertEqual((0, None), run('Full', 'PASS'))
+        self.assertEqual((1, 'Fast'), run('Fast', 'FAIL'))
+        self.assertEqual((0, None), run('Task', 'PASS'))
+
     def test_schemas_reject_invalid_modes_and_legacy_queue_stays_enforced(self):
         for invalid in ('off', '', None, True, 0):
             config = load_config(ROOT, kit=True)

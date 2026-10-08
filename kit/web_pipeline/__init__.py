@@ -1,3 +1,3 @@
 """Evidence-first web development pipeline."""
 
-__version__ = "2.16.0"
+__version__ = "2.17.0"

@@ -151,7 +151,7 @@ test report 의 test status: `passed` `failed` `error` `skipped`.
 | protected change | `risk.protected_rules` 의 키(예: `authentication`, `database_schema`, `payment`). 역할 승인 + ADR scope 필요 |
 | domain | 12개 고정 어휘. `project.supported_domains` 는 그 부분집합 |
 | budget | task: `iteration_limits`(`total_attempts` 5, `same_failure` 3, `external_retries` 2, `elapsed_minutes` 120). queue: `max_steps`, `elapsed_minutes`. 누적 시간은 새 도입 `time_budget_mode: warn`에서 경고, 기존 미지정은 enforce |
-| renewal | `loop renew` 가 남기는 가산 기록. 카운터를 리셋하지 않으며 `same_failure`/`external_retries` 는 풀지 않는다 |
+| renewal | `loop renew` 가 남기는 가산 기록. 사용량을 리셋하지 않는다. 한도에 닿은 `same_failure`/`external_retries` 정지만 풀고 푼 횟수를 남긴다 |
 | Phase task | `SCOPE.json` `level: phase`. DONE member 들의 check 합집합을 현재 트리에서 재검증 |
 | implementation group | plan 의 `{phase, order}`. member 전원이 Baseline/진입 gate 를 마친 뒤 `order` 순으로 구현 |
 | migration class | `none` T0 · `reversible` T2 · `backward_compatible` T3 · `destructive`/`irreversible` T4. `none` 외에는 `database_schema`, 뒤 둘은 `destructive_migration` 보호 변경이 자동 추가 |

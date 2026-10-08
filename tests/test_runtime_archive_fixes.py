@@ -79,7 +79,8 @@ class RuntimeArchiveFixes(unittest.TestCase):
             self.assertEqual(1, read_state(f.root, f.task)['iteration']['same_failure'])
         atomic_text(f.root / 'check.py', 'assert 2 + 2 == 4\n')
         self.assertEqual('PASS', run_profile(f.root, f.task, 'Fast')['status'])
-        self.assertEqual(3, read_state(f.root, f.task)['iteration']['failed_attempts'])
+        # A pass ends the failing streak; the failed-attempt limit counts failures since the last pass.
+        self.assertEqual(0, read_state(f.root, f.task)['iteration']['failed_attempts'])
 
     def _done(self):
         fixture = test_archive.ArchiveTests()
